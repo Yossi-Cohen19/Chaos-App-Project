@@ -27,6 +27,12 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70
 
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  chaosRole: true
+
 externalSecret:
   enabled: true
   data:
