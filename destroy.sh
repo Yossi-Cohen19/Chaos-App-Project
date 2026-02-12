@@ -71,7 +71,7 @@ if command -v kubectl &> /dev/null; then
         echo "Deleting ArgoCD Applications..."
         kubectl delete -f "${APPS_FILE}" --ignore-not-found=true
         kubectl delete -f argocd-apps/ingress-nginx.yaml --ignore-not-found=true
-        kubectl delete -f argocd-apps/observability.yaml --ignore-not-found=true
+        kubectl delete -f argocd-apps/prometheus.yaml --ignore-not-found=true
 
         echo "Waiting for Load Balancers to be cleaned up (60s)..."
         sleep 60

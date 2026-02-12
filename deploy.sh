@@ -82,9 +82,17 @@ echo "Detected GitHub Repo: ${GREEN}${GITHUB_REPO}${NC}"
 echo "Target Environment:   ${GREEN}${ENV}${NC}"
 echo "Target Cluster:       ${GREEN}${CLUSTER_NAME}${NC}"
 
-# Update Helm Values with ECR repo
-echo "Updating Helm values.yaml with current Account ID..."
+# Update Helm Values with ECR repo and build info
+echo "Updating Helm values.yaml with current Account ID and Build Info..."
+COMMIT_SHA=$(git rev-parse --short HEAD)
 sed -i "s|repository: .*|repository: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}|g" charts/chaos-generic/values.yaml
+sed -i "s|nextPublicCommitSha: .*|nextPublicCommitSha: \"${COMMIT_SHA}\"|g" charts/chaos-generic/values.yaml
+
+if [[ "$ENV" == "prod" ]]; then
+  sed -i "s|nextPublicEnvironment: .*|nextPublicEnvironment: \"AWS EKS (prod)\"|g" charts/chaos-generic/values.yaml
+else
+  sed -i "s|nextPublicEnvironment: .*|nextPublicEnvironment: \"AWS EKS (dev)\"|g" charts/chaos-generic/values.yaml
+fi
 
 # Update ArgoCD Apps with GitHub repo
 echo "Updating ArgoCD apps with current GitHub Repo..."
@@ -149,7 +157,7 @@ if changed:
 print_step "Step 6: Deploying ArgoCD Applications"
 kubectl apply -f argocd-apps/ingress-nginx.yaml
 kubectl apply -f "${APPS_FILE}"
-kubectl apply -f argocd-apps/observability.yaml
+kubectl apply -f argocd-apps/prometheus.yaml
 echo -e "${GREEN}✓ ArgoCD Applications deployed${NC}"
 
 # Wait for ArgoCD to sync

@@ -2,7 +2,15 @@
 
 import { Cloud, GitBranch, Activity, Terminal } from "lucide-react"
 
-export function DashboardHeader() {
+export function DashboardHeader({
+  environment = "AWS EKS (us-east-1)",
+  version = "v2.4.0",
+  commit = "8f2a1d"
+}: {
+  environment?: string
+  version?: string
+  commit?: string
+}) {
   return (
     <header className="border-b border-primary/30 bg-card/90 backdrop-blur-sm shadow-[0_5px_30px_rgba(34,211,238,0.1)]">
       <div className="flex items-center justify-between px-6 py-3">
@@ -16,7 +24,7 @@ export function DashboardHeader() {
             <h1 className="text-sm font-semibold tracking-widest uppercase text-foreground font-sans">
               DevOps Resilience
             </h1>
-            <p className="text-xs text-primary/60 font-mono tracking-wider">PLATFORM v2.4.0</p>
+            <p className="text-xs text-primary/60 font-mono tracking-wider">PLATFORM {version}</p>
           </div>
         </div>
 
@@ -26,7 +34,7 @@ export function DashboardHeader() {
           <div className="flex items-center gap-2">
             <Cloud className="h-4 w-4 text-primary" />
             <span className="text-sm text-muted-foreground font-sans">Environment:</span>
-            <span className="font-mono text-sm text-primary tracking-wider">AWS EKS (us-east-1)</span>
+            <span className="font-mono text-sm text-primary tracking-wider">{environment}</span>
           </div>
 
           {/* Build Version */}
@@ -34,7 +42,7 @@ export function DashboardHeader() {
             <Activity className="h-4 w-4 text-accent" />
             <span className="text-sm text-muted-foreground font-sans">Build:</span>
             <span className="font-mono text-sm px-2 py-0.5 rounded-md bg-accent/20 text-accent border border-accent/40 shadow-[0_0_15px_rgba(16,185,129,0.3)] tracking-wider">
-              v2.4.0
+              {version}
             </span>
           </div>
 
@@ -42,7 +50,7 @@ export function DashboardHeader() {
           <div className="flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-primary" />
             <span className="text-sm text-muted-foreground font-sans">Commit:</span>
-            <span className="font-mono text-sm text-primary neon-text tracking-wider">8f2a1d</span>
+            <span className="font-mono text-sm text-primary neon-text tracking-wider">{commit}</span>
           </div>
 
           {/* Live Indicator */}

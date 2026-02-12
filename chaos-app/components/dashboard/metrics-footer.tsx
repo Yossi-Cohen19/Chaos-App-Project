@@ -3,10 +3,6 @@
 import { useState, useEffect } from "react"
 import { Activity, Cpu, AlertTriangle } from "lucide-react"
 
-function generateSparklineData(length: number, baseValue: number, variance: number) {
-  return Array.from({ length }, () => baseValue + (Math.random() - 0.5) * variance * 2)
-}
-
 function SparklineChart({
   data,
   color,
@@ -100,9 +96,9 @@ function SparklineChart({
 }
 
 export function MetricsFooter() {
-  const [memoryData, setMemoryData] = useState(() => generateSparklineData(20, 65, 10))
-  const [cpuData, setCpuData] = useState(() => generateSparklineData(20, 45, 15))
-  const [errorData, setErrorData] = useState(() => generateSparklineData(20, 0.5, 0.3))
+  const [memoryData, setMemoryData] = useState<number[]>(() => Array(20).fill(0))
+  const [cpuData, setCpuData] = useState<number[]>(() => Array(20).fill(0))
+  const [errorData, setErrorData] = useState<number[]>(() => Array(20).fill(0))
   const [useMockData, setUseMockData] = useState(true)
 
   // Fetch real metrics periodically
@@ -113,10 +109,9 @@ export function MetricsFooter() {
         if (response.ok) {
           const data = await response.json()
           if (!data.fallback) {
-            // Update with real data
             setCpuData(prev => [...prev.slice(1), data.cpu || 0])
-            setMemoryData(prev => [...prev.slice(1), data.memory / 10 || 0]) // Scale memory from MB to %
-            setErrorData(prev => [...prev.slice(1), Math.random() * 0.8]) // Error rate still simulated
+            setMemoryData(prev => [...prev.slice(1), data.memoryPercent || 0])
+            setErrorData(prev => [...prev.slice(1), data.errorRate || 0])
             setUseMockData(false)
             return
           }
@@ -135,7 +130,8 @@ export function MetricsFooter() {
       })
     }
 
-    const interval = setInterval(fetchMetrics, 2000)
+    const interval = setInterval(fetchMetrics, 3000)
+    fetchMetrics()
     return () => clearInterval(interval)
   }, [])
 
@@ -150,7 +146,7 @@ export function MetricsFooter() {
         <Activity className="h-4 w-4 text-primary neon-text" />
         <span className="text-xs text-muted-foreground uppercase tracking-widest font-sans">Real-time Observability</span>
         <span className="text-xs text-primary/60 font-mono tracking-wider">
-          {useMockData ? 'Mock Mode' : 'Live Prometheus'}
+          {useMockData ? 'Mock Mode' : 'Prometheus/Grafana'}
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -178,7 +174,7 @@ export function MetricsFooter() {
           fillColor={isErrorSpike ? "#f43f5e" : "#10b981"}
           label="Error Rate"
           value={currentError.toFixed(2)}
-          unit="/s"
+          unit="/hr"
           icon={AlertTriangle}
           isAlert={isErrorSpike}
         />

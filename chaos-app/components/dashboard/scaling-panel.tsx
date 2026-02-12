@@ -16,6 +16,8 @@ export function ScalingPanel() {
   const [animatingReplicas, setAnimatingReplicas] = useState<number[]>([0])
   const [useMockData, setUseMockData] = useState(false)
 
+  const [maxReplicas, setMaxReplicas] = useState(10)
+
   const hourlyCost = replicas * COST_PER_REPLICA
 
   // Fetch real metrics from Prometheus
@@ -28,6 +30,7 @@ export function ScalingPanel() {
           if (!data.fallback) {
             setCpuLoad(Math.round(data.cpu))
             setReplicas(data.replicas)
+            if (data.maxReplicas) setMaxReplicas(data.maxReplicas)
             setAnimatingReplicas(Array.from({ length: data.replicas }, (_, i) => i))
             setUseMockData(false)
             return
@@ -102,14 +105,14 @@ export function ScalingPanel() {
           <div className="flex items-center gap-2">
             <span className="font-mono text-2xl text-primary neon-text">{replicas}</span>
             <span className="text-muted-foreground">/</span>
-            <span className="font-mono text-sm text-muted-foreground">{MAX_REPLICAS}</span>
+            <span className="font-mono text-sm text-muted-foreground">{maxReplicas}</span>
             {isScaling && <Zap className="h-4 w-4 text-amber-500 animate-pulse neon-text" />}
           </div>
         </div>
 
         {/* Replica Bar Chart - Server Rack Style */}
         <div className="grid grid-cols-10 gap-2 mb-6">
-          {Array.from({ length: MAX_REPLICAS }).map((_, i) => {
+          {Array.from({ length: maxReplicas }).map((_, i) => {
             const isActive = animatingReplicas.includes(i)
 
             return (

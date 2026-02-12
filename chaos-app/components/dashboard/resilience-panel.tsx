@@ -10,19 +10,17 @@ type LogEntry = {
   message: string
 }
 
-const NORMAL_LOGS = [
-  "Health check passed - 200 OK",
-  "Incoming request processed",
-  "Cache hit for user session",
-  "Database query completed in 12ms",
-  "Connection pool: 8/20 active",
-  "Memory usage: 342MB / 512MB",
-  "Heartbeat sent to control plane",
-  "Request latency: 23ms avg",
-]
+type K8sEvent = {
+  type: string
+  reason: string
+  message: string
+  object: string
+  timestamp: string | null
+  count: number
+}
 
 export function ResiliencePanel() {
-  const [hitCount, setHitCount] = useState(0)
+  const [dbConnections, setDbConnections] = useState({ active: 0, total: 0, maxConnections: 20 })
   const [currentPod, setCurrentPod] = useState<string>("")
   const [availablePods, setAvailablePods] = useState<string[]>([])
   const [isReconnecting, setIsReconnecting] = useState(false)
@@ -31,6 +29,7 @@ export function ResiliencePanel() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isKillActive, setIsKillActive] = useState(false)
   const logContainerRef = useRef<HTMLDivElement>(null)
+  const lastEventTimestamp = useRef<string | null>(null)
 
   const getTimestamp = () => {
     const now = new Date()
@@ -49,7 +48,11 @@ export function ResiliencePanel() {
         if (response.ok) {
           const data = await response.json()
           if (!data.fallback) {
-            setHitCount(data.active)
+            setDbConnections({
+              active: data.active,
+              total: data.total,
+              maxConnections: data.maxConnections,
+            })
           }
         }
       } catch (error) {
@@ -85,21 +88,48 @@ export function ResiliencePanel() {
     return () => clearInterval(interval)
   }, [currentPod])
 
+  // Fetch real K8s events for the log panel
+  useEffect(() => {
+    if (isReconnecting) return
+
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch('/api/events')
+        if (response.ok) {
+          const data = await response.json()
+          const events: K8sEvent[] = data.events || []
+
+          // Only add new events we haven't seen yet
+          const newEvents = lastEventTimestamp.current
+            ? events.filter(e => e.timestamp && e.timestamp > lastEventTimestamp.current!)
+            : events.slice(0, 5) // On first load, show last 5 events
+
+          if (newEvents.length > 0) {
+            lastEventTimestamp.current = events[0]?.timestamp || null
+
+            newEvents.reverse().forEach(event => {
+              const level: LogEntry["level"] = event.type === "Warning" ? "WARN" : "K8S"
+              const msg = `[${event.reason}] ${event.object}: ${event.message}`.slice(0, 120)
+              addLog(level, msg)
+            })
+          }
+        }
+      } catch (error) {
+        // Silently fail — the log panel will just stay empty until events arrive
+      }
+    }
+
+    fetchEvents()
+    const interval = setInterval(fetchEvents, 8000)
+    return () => clearInterval(interval)
+  }, [isReconnecting])
+
   // Auto-scroll logs
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
     }
   }, [logs])
-
-  // Normal log generation
-  useEffect(() => {
-    if (isReconnecting) return
-    const interval = setInterval(() => {
-      addLog("INFO", NORMAL_LOGS[Math.floor(Math.random() * NORMAL_LOGS.length)])
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [isReconnecting])
 
   const handleKillPod = async () => {
     if (availablePods.length === 0) {
@@ -197,13 +227,15 @@ export function ResiliencePanel() {
         <div className="relative">
           <div className="absolute inset-0 -inset-x-8 -inset-y-4 bg-gradient-to-b from-primary/5 via-primary/10 to-primary/5 rounded-xl blur-xl" />
           <div className="relative text-5xl md:text-6xl font-mono font-bold text-primary tracking-[0.15em] text-center nixie-counter">
-            {hitCount.toLocaleString()}
+            {dbConnections.total.toLocaleString()}
           </div>
           <div className="absolute inset-0 text-5xl md:text-6xl font-mono font-bold text-primary tracking-[0.15em] text-center blur-md opacity-50">
-            {hitCount.toLocaleString()}
+            {dbConnections.total.toLocaleString()}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground mt-2 font-sans uppercase tracking-widest">Active Connections</p>
+        <p className="text-sm text-muted-foreground mt-2 font-sans uppercase tracking-widest">
+          DB Connections ({dbConnections.active} active / {dbConnections.maxConnections} max)
+        </p>
       </div>
 
       {/* CRT Terminal Log */}
@@ -220,6 +252,9 @@ export function ResiliencePanel() {
           ref={logContainerRef}
           className="h-28 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed scrollbar-thin"
         >
+          {logs.length === 0 && (
+            <div className="text-muted-foreground/40 italic">Waiting for cluster events...</div>
+          )}
           {logs.map((log, i) => (
             <div key={i} className="flex gap-2">
               <span className="text-muted-foreground/60">{log.timestamp}</span>

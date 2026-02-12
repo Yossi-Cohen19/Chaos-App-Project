@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const PROMETHEUS_URL = process.env.PROMETHEUS_URL || 'http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090';
+const NAMESPACE = process.env.NAMESPACE || 'dev';
 
 interface PrometheusResponse {
     status: string;
@@ -32,37 +33,56 @@ async function queryPrometheus(query: string): Promise<PrometheusResponse | null
     }
 }
 
+function extractValue(data: PrometheusResponse | null): number | null {
+    const raw = data?.data?.result?.[0]?.value?.[1];
+    return raw != null ? parseFloat(raw) : null;
+}
+
 export async function GET() {
     try {
-        // Query CPU usage (rate over last 5 minutes)
-        const cpuQuery = 'sum(rate(container_cpu_usage_seconds_total{namespace="dev",pod=~"chaos-app.*"}[5m])) * 100';
-        const cpuData = await queryPrometheus(cpuQuery);
+        const ns = NAMESPACE;
 
-        // Query memory usage (in MB)
-        const memoryQuery = 'sum(container_memory_working_set_bytes{namespace="dev",pod=~"chaos-app.*"}) / 1024 / 1024';
-        const memoryData = await queryPrometheus(memoryQuery);
+        // CPU usage % (rate over 5m, normalised to cores then to %)
+        const cpuQuery = `sum(rate(container_cpu_usage_seconds_total{namespace="${ns}",pod=~"chaos-app.*",container!=""}[5m])) * 100`;
 
-        // Query replica count
-        const replicaQuery = 'kube_deployment_status_replicas{namespace="dev",deployment=~"chaos-app.*"}';
-        const replicaData = await queryPrometheus(replicaQuery);
+        // Memory working-set as % of limit
+        const memPercentQuery = `sum(container_memory_working_set_bytes{namespace="${ns}",pod=~"chaos-app.*",container!=""}) / sum(kube_pod_container_resource_limits{namespace="${ns}",pod=~"chaos-app.*",resource="memory"}) * 100`;
 
-        // Extract values
-        const cpuPercent = cpuData?.data?.result?.[0]?.value?.[1]
-            ? parseFloat(cpuData.data.result[0].value[1])
-            : 0;
+        // Raw memory in MB (fallback display)
+        const memMbQuery = `sum(container_memory_working_set_bytes{namespace="${ns}",pod=~"chaos-app.*",container!=""}) / 1024 / 1024`;
 
-        const memoryMB = memoryData?.data?.result?.[0]?.value?.[1]
-            ? parseFloat(memoryData.data.result[0].value[1])
-            : 0;
+        // Replica count
+        const replicaQuery = `kube_deployment_status_replicas{namespace="${ns}",deployment=~"chaos-app.*"}`;
 
-        const replicas = replicaData?.data?.result?.[0]?.value?.[1]
-            ? parseInt(replicaData.data.result[0].value[1])
-            : 1;
+        // Error rate — pod restart rate over last 15m
+        const errorRateQuery = `sum(rate(kube_pod_container_status_restarts_total{namespace="${ns}",pod=~"chaos-app.*"}[15m])) * 3600`;
+
+        // HPA desired replicas (max across HPAs)
+        const hpaMaxQuery = `kube_horizontalpodautoscaler_spec_max_replicas{namespace="${ns}",horizontalpodautoscaler=~"chaos-app.*"}`;
+
+        const [cpuData, memPctData, memMbData, replicaData, errorData, hpaData] = await Promise.all([
+            queryPrometheus(cpuQuery),
+            queryPrometheus(memPercentQuery),
+            queryPrometheus(memMbQuery),
+            queryPrometheus(replicaQuery),
+            queryPrometheus(errorRateQuery),
+            queryPrometheus(hpaMaxQuery),
+        ]);
+
+        const cpuPercent = extractValue(cpuData) ?? 0;
+        const memoryPercent = extractValue(memPctData) ?? 0;
+        const memoryMB = extractValue(memMbData) ?? 0;
+        const replicas = extractValue(replicaData) ?? 1;
+        const errorRate = extractValue(errorData) ?? 0;
+        const maxReplicas = extractValue(hpaData) ?? 10;
 
         return NextResponse.json({
-            cpu: Math.round(cpuPercent * 10) / 10, // Round to 1 decimal
+            cpu: Math.round(cpuPercent * 10) / 10,
             memory: Math.round(memoryMB),
-            replicas: replicas,
+            memoryPercent: Math.round(memoryPercent * 10) / 10,
+            replicas: Math.round(replicas),
+            maxReplicas: Math.round(maxReplicas),
+            errorRate: Math.round(errorRate * 100) / 100,
             timestamp: Date.now(),
         });
     } catch (error) {
