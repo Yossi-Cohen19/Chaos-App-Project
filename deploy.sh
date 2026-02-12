@@ -49,6 +49,8 @@ elif [[ "$ENV" == "prod" ]]; then
   ECR_REPO="chaos-platform-app-prod"
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   Chaos Platform - Automated Deployment (${ENV})            ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
@@ -66,7 +68,6 @@ print_step() {
 print_step "Step 0: Checking Prerequisites"
 command -v terragrunt >/dev/null 2>&1 || { echo "Error: terragrunt not installed"; exit 1; }
 command -v kubectl >/dev/null 2>&1 || { echo "Error: kubectl not installed"; exit 1; }
-command -v helm >/dev/null 2>&1 || { echo "Error: helm not installed"; exit 1; }
 echo -e "${GREEN}✓ All prerequisites installed${NC}"
 
 # Auto-detect configuration
@@ -81,25 +82,22 @@ echo "Detected GitHub Repo: ${GREEN}${GITHUB_REPO}${NC}"
 echo "Target Environment:   ${GREEN}${ENV}${NC}"
 echo "Target Cluster:       ${GREEN}${CLUSTER_NAME}${NC}"
 
-# Update Helm Values
+# Update Helm Values with ECR repo
 echo "Updating Helm values.yaml with current Account ID..."
 sed -i "s|repository: .*|repository: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}|g" charts/chaos-generic/values.yaml
 
-# Update ArgoCD Apps
+# Update ArgoCD Apps with GitHub repo
 echo "Updating ArgoCD apps with current GitHub Repo..."
-sed -i "s|repoURL: .*|repoURL: https://github.com/${GITHUB_REPO}.git|g" "${APPS_FILE}"
-
-# Also update dev-cluster-apps if deploying dev (contains both dev + staging)
-if [[ "$ENV" == "dev" ]]; then
-  sed -i "s|repoURL: .*|repoURL: https://github.com/${GITHUB_REPO}.git|g" argocd-apps/dev-cluster-apps.yaml
-fi
+for f in argocd-apps/*.yaml; do
+  sed -i "s|repoURL: https://github.com/.*|repoURL: https://github.com/${GITHUB_REPO}.git|g" "$f"
+done
 
 # Export for Terragrunt
 export GITHUB_REPO="${GITHUB_REPO}"
 
 # Deploy all infrastructure with one command
 print_step "Step 1: Initializing Infrastructure (${ENV})"
-cd "$(dirname "$0")/infrastructure-live/${CLUSTER_DIR}"
+cd "${SCRIPT_DIR}/infrastructure-live/${CLUSTER_DIR}"
 echo "Running: terragrunt run-all init"
 terragrunt run-all init
 echo -e "${GREEN}✓ Infrastructure initialized${NC}"
@@ -111,93 +109,78 @@ echo -e "${GREEN}✓ All infrastructure deployed${NC}"
 
 # Configure kubectl to access the EKS cluster
 print_step "Step 3: Configuring kubectl for EKS"
-cd "$(dirname "$0")"
-# Navigate back to repo root
-cd - > /dev/null
-REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "$REPO_ROOT"
-
+cd "${SCRIPT_DIR}"
 aws eks update-kubeconfig --name "${CLUSTER_NAME}" --region "${AWS_REGION}"
 echo -e "${GREEN}✓ kubectl configured for ${CLUSTER_NAME}${NC}"
 
 # Wait for External Secrets to be ready
 print_step "Step 4: Waiting for External Secrets Operator"
+echo "Waiting for pods to be scheduled..."
+sleep 30
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=external-secrets -n external-secrets --timeout=120s && \
   echo -e "${GREEN}✓ External Secrets Operator ready${NC}" || \
   echo -e "${YELLOW}⚠ External Secrets might not be ready yet${NC}"
 
-# Install ingress-nginx controller
-print_step "Step 5: Installing ingress-nginx Controller"
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx 2>/dev/null || true
-helm repo update
+# Patch ALB webhook to allow non-ALB ingress classes (nginx)
+# This is needed because the ALB controller's validating webhook blocks all ingress classes by default
+print_step "Step 5: Configuring ALB Controller Webhook"
+echo "Scoping ALB webhook to only validate ALB-managed resources..."
+kubectl get ValidatingWebhookConfiguration aws-load-balancer-webhook -o json 2>/dev/null | \
+  python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+changed = False
+for wh in data.get('webhooks', []):
+    if wh['name'] == 'vingress.elbv2.k8s.aws':
+        wh['objectSelector'] = {
+            'matchExpressions': [{
+                'key': 'elbv2.k8s.aws/cluster',
+                'operator': 'Exists'
+            }]
+        }
+        changed = True
+if changed:
+    json.dump(data, sys.stdout)
+" | kubectl apply -f - 2>/dev/null && \
+  echo -e "${GREEN}✓ ALB webhook scoped to ALB-only resources${NC}" || \
+  echo -e "${YELLOW}⚠ ALB webhook patch skipped (not found or already configured)${NC}"
 
-if helm status ingress-nginx -n ingress-nginx >/dev/null 2>&1; then
-  echo -e "${YELLOW}⚠ ingress-nginx already installed, upgrading...${NC}"
-  helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
-    -n ingress-nginx \
-    --set controller.service.type=LoadBalancer \
-    --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"=nlb \
-    --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"=internet-facing
-else
-  helm install ingress-nginx ingress-nginx/ingress-nginx \
-    -n ingress-nginx --create-namespace \
-    --set controller.service.type=LoadBalancer \
-    --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"=nlb \
-    --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"=internet-facing
-fi
-echo -e "${GREEN}✓ ingress-nginx controller deployed${NC}"
-
-# Deploy ArgoCD Applications
+# Deploy ArgoCD Applications (all managed via GitOps)
 print_step "Step 6: Deploying ArgoCD Applications"
+kubectl apply -f argocd-apps/ingress-nginx.yaml
 kubectl apply -f "${APPS_FILE}"
-
-# Deploy observability stack (both environments)
-echo "Deploying observability stack..."
 kubectl apply -f argocd-apps/observability.yaml
 echo -e "${GREEN}✓ ArgoCD Applications deployed${NC}"
 
-# Post-deployment verification
-print_step "Step 7: Post-deployment Verification"
-
-echo "Waiting for pods to be ready..."
-sleep 15
-
-if [[ "$ENV" == "dev" ]]; then
-  echo "Checking dev namespace..."
-  kubectl get pods -n dev 2>/dev/null || echo -e "${YELLOW}⚠ No pods in dev yet (ArgoCD will sync shortly)${NC}"
-  echo ""
-  echo "Checking staging namespace..."
-  kubectl get pods -n staging 2>/dev/null || echo -e "${YELLOW}⚠ No pods in staging yet (ArgoCD will sync shortly)${NC}"
-elif [[ "$ENV" == "prod" ]]; then
-  echo "Checking prod namespace..."
-  kubectl get pods -n prod 2>/dev/null || echo -e "${YELLOW}⚠ No pods in prod yet (ArgoCD will sync shortly)${NC}"
-fi
+# Wait for ArgoCD to sync
+print_step "Step 7: Waiting for ArgoCD Sync"
+echo "ArgoCD will now sync all applications from Git. This may take 2-5 minutes..."
+echo "Waiting 60 seconds for initial sync..."
+sleep 60
 
 echo ""
 echo "ArgoCD Applications status:"
-kubectl get applications -n argocd 2>/dev/null || echo -e "${YELLOW}⚠ ArgoCD not ready yet${NC}"
+kubectl get applications -n argocd 2>/dev/null || echo -e "${YELLOW}⚠ ArgoCD not fully ready yet${NC}"
 
 echo ""
 echo "Checking ingress-nginx LoadBalancer..."
-INGRESS_LB=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
+INGRESS_LB=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
 echo -e "LoadBalancer DNS: ${BLUE}${INGRESS_LB}${NC}"
 
 # Summary
 print_step "🎉 Deployment Complete! (${ENV})"
 echo ""
-echo -e "${GREEN}Next steps:${NC}"
-echo "1. Push your code to trigger CI/CD:"
-echo "   ${BLUE}git add . && git commit -m 'deploy' && git push origin develop${NC}"
+echo -e "${GREEN}What was deployed:${NC}"
+echo "  • Infrastructure via Terragrunt (VPC, EKS, RDS, ECR, Secrets, IRSA)"
+echo "  • ArgoCD manages: ingress-nginx, chaos-app(s), kube-prometheus-stack"
 echo ""
-echo "2. Access ArgoCD UI:"
-echo "   ${BLUE}kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d${NC}"
-echo "   ${BLUE}kubectl port-forward svc/argo-cd-argocd-server -n argocd 8080:443${NC}"
-echo "   Open: ${BLUE}https://localhost:8080${NC}"
+echo -e "${GREEN}Access:${NC}"
+echo "  ArgoCD UI:  ${BLUE}kubectl port-forward svc/argo-cd-argocd-server -n argocd 8080:443${NC}"
+echo "  Password:   ${BLUE}kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d${NC}"
+echo "  App URL:    ${BLUE}http://${INGRESS_LB}${NC}"
 echo ""
-echo "3. Access your app via LoadBalancer:"
-echo "   ${BLUE}http://${INGRESS_LB}${NC}"
-echo ""
-echo "4. Check deployment:"
-echo "   ${BLUE}kubectl get pods -A${NC}"
-echo "   ${BLUE}kubectl get ingress -A${NC}"
+echo -e "${GREEN}Verify:${NC}"
+echo "  ${BLUE}kubectl get applications -n argocd${NC}"
+echo "  ${BLUE}kubectl get pods -A${NC}"
+echo "  ${BLUE}kubectl get ingress -A${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

@@ -8,7 +8,6 @@ set -e
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
@@ -47,6 +46,8 @@ elif [[ "$ENV" == "prod" ]]; then
   APPS_FILE="argocd-apps/prod-cluster-apps.yaml"
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 print_step() {
     echo ""
     echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -63,20 +64,17 @@ if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     exit 1
 fi
 
-# Step 1: Cleanup Kubernetes Resources (Load Balancers, Ingress)
+# Step 1: Cleanup Kubernetes Resources (ArgoCD apps, Load Balancers)
 print_step "Step 1: Cleaning up Kubernetes Resources (${ENV})"
 if command -v kubectl &> /dev/null; then
-    # Check if we can connect to the cluster
     if kubectl cluster-info &>/dev/null; then
         echo "Deleting ArgoCD Applications..."
         kubectl delete -f "${APPS_FILE}" --ignore-not-found=true
+        kubectl delete -f argocd-apps/ingress-nginx.yaml --ignore-not-found=true
         kubectl delete -f argocd-apps/observability.yaml --ignore-not-found=true
 
-        echo "Removing ingress-nginx controller..."
-        helm uninstall ingress-nginx -n ingress-nginx 2>/dev/null || true
-
-        echo "Waiting for Load Balancers to be deleted (45s)..."
-        sleep 45
+        echo "Waiting for Load Balancers to be cleaned up (60s)..."
+        sleep 60
     else
         echo -e "${YELLOW}Cannot connect to cluster, skipping K8s cleanup${NC}"
     fi
@@ -86,7 +84,7 @@ fi
 
 # Step 2: Destroy Infrastructure
 print_step "Step 2: Destroying Terraform Infrastructure (${ENV})"
-cd "$(dirname "$0")/infrastructure-live/${CLUSTER_DIR}"
+cd "${SCRIPT_DIR}/infrastructure-live/${CLUSTER_DIR}"
 
 echo "Running: terragrunt run-all destroy"
 terragrunt run-all destroy --terragrunt-non-interactive
