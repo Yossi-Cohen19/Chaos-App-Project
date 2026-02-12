@@ -1,0 +1,65 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: ["main", "develop"]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: chaos-platform-app-dev
+
+permissions:
+  contents: write
+  id-token: write
+
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::462645401469:role/github-actions-ecr-push
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: "462645401469"
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        working-directory: chaos-nextjs-app/dev-ops-resilience-platform
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Update Helm Chart Values (GitOps)
+        if: github.ref == 'refs/heads/develop'
+        env:
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Update the tag in values.yaml or a specific environment values file
+          # Here we just demonstrate updating values.yaml for simplicity in this prompt structure
+          # Using yq to update yaml relative to repo root
+          # Note: In a real scenario you might update `envs/dev/values.yaml`
+          sed -i "s/tag: .*/tag: \"$IMAGE_TAG\"/" charts/chaos-generic/values.yaml
+          
+          git add charts/chaos-generic/values.yaml
+          git commit -m "chore(release): update image tag to $IMAGE_TAG [skip ci]"
+          git push

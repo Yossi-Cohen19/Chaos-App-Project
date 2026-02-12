@@ -1,0 +1,36 @@
+# Staging-specific overrides for chaos-generic Helm chart
+
+replicaCount: 2
+
+image:
+  tag: "latest"  # Will be updated by CI/CD
+
+ingress:
+  enabled: true
+  hosts:
+    - host: chaos-staging.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+externalSecret:
+  enabled: true
+  data:
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: chaos-staging-db  # Different secret for staging
+        property: DATABASE_URL
