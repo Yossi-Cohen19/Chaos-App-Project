@@ -15,7 +15,7 @@ dependency "ecr" {
   config_path = "../ecr"
   
   mock_outputs = {
-    repository_arn = "arn:aws:ecr:${get_aws_region()}:${get_aws_account_id()}:repository/chaos-platform-app-dev-mock"
+    repository_arn = "arn:aws:ecr:us-east-1:${get_aws_account_id()}:repository/chaos-platform-app-dev-mock"
   }
 }
 

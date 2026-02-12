@@ -10,4 +10,5 @@ inputs = {
   repository_name = "chaos-platform-app-dev"
   
   repository_image_tag_mutability = "MUTABLE"
+  repository_force_delete         = true
 }

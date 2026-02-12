@@ -9,7 +9,7 @@ include "root" {
 dependency "eks" {
   config_path = "../eks"
   mock_outputs = {
-    oidc_provider_arn = "arn:aws:iam::${get_aws_account_id()}:oidc-provider/oidc.eks.${get_aws_region()}.amazonaws.com/id/EXAMPLE"
+    oidc_provider_arn = "arn:aws:iam::${get_aws_account_id()}:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"
   }
 }
 
@@ -38,7 +38,7 @@ inputs = {
             "secretsmanager:GetSecretValue",
             "secretsmanager:DescribeSecret"
           ]
-          Resource = "arn:aws:secretsmanager:${get_aws_region()}:${get_aws_account_id()}:secret:chaos-*"
+          Resource = "arn:aws:secretsmanager:us-east-1:${get_aws_account_id()}:secret:chaos-*"
         }
       ]
     })
