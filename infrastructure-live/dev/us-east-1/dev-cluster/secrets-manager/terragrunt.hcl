@@ -16,6 +16,7 @@ dependency "rds" {
 inputs = {
   name = "chaos-dev-db"
   description = "Database credentials for Chaos Platform Dev"
+  recovery_window_in_days = 0
   
   # In a real scenario, we might want to ignore changes if the secret is managed externally or changed by rotation.
   # For now, we set the initial value.
