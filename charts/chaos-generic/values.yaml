@@ -95,3 +95,16 @@ env: []
 # New props
 nextPublicEnvironment: "AWS EKS (us-east-1)"
 nextPublicCommitSha: "HEAD"
+# ClusterSecretStore configuration
+clusterSecretStore:
+  enabled: false
+  name: "chaos-secret-store"
+  provider:
+    aws:
+      service: "SecretsManager"
+      region: "us-east-1"
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: "external-secrets-irsa"
+            namespace: "external-secrets"
