@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: Yossi-Cohen19/Chaos-App-Project.git
+    repoURL: https://github.com/Yossi-Cohen19/Chaos-App-Project.git
     targetRevision: develop
     path: charts/chaos-generic
     helm:
@@ -41,7 +41,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: Yossi-Cohen19/Chaos-App-Project.git
+    repoURL: https://github.com/Yossi-Cohen19/Chaos-App-Project.git
     targetRevision: HEAD
     path: charts/chaos-generic
     helm:
