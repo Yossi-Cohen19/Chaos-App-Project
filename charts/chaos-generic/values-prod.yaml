@@ -1,0 +1,43 @@
+# Production-specific overrides for chaos-generic Helm chart
+
+replicaCount: 3
+
+image:
+  repository: PLACEHOLDER.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
+  tag: "latest"
+
+ingress:
+  enabled: true
+  hosts:
+    - host: chaos-prod.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  chaosRole: true
+
+externalSecret:
+  enabled: true
+  data:
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: chaos-prod-db
+        property: DATABASE_URL
