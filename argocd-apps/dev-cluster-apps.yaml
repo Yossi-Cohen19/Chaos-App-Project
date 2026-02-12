@@ -42,7 +42,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Yossi-Cohen19/Chaos-App-Project.git
-    targetRevision: HEAD
+    targetRevision: develop
     path: charts/chaos-generic
     helm:
       valueFiles:
