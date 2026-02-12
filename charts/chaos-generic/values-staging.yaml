@@ -32,5 +32,6 @@ externalSecret:
   data:
     - secretKey: DATABASE_URL
       remoteRef:
-        key: chaos-staging-db  # Different secret for staging
+        key: chaos-dev-db  # Shared DB in dev-cluster
         property: DATABASE_URL
+
