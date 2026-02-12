@@ -59,13 +59,69 @@ Managed via **Terragrunt** to keep configurations DRY.
     3.  Build and push the Docker image to ECR (ECR creation is present in structure but needs verification).
 
 ## 🛠 Usage
-### Prerequisites
-- Terraform ~> 1.5
-- Terragrunt
-- AWS CLI configured
 
-### Deploying Infrastructure
+### 📋 Prerequisites
+Please refer to [USER_REQUIREMENTS.md](USER_REQUIREMENTS.md) for detailed setup instructions.
+- AWS CLI configured
+- kubectl
+- Terragrunt
+- Docker
+
+### 🚀 Quick Start (Recommended)
+This repository includes a fully automated deployment script for any AWS account.
+
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+**What this does:**
+1.  **Auto-detects** your AWS Account and Region.
+2.  **Initializes & Deploys** all infrastructure via Terragrunt.
+3.  **Configures** `kubectl` for the new EKS cluster.
+4.  **Deploys** ArgoCD applications to `dev` and `staging` environments.
+
+### 🔧 Manual Deployment
+If you prefer manual steps:
+
+1.  **Deploy Infrastructure**:
+    ```bash
+    cd infrastructure-live/dev/us-east-1/dev-cluster
+    terragrunt run-all init
+    terragrunt run-all apply
+    ```
+
+2.  **Configure Access**:
+    ```bash
+    aws eks update-kubeconfig --name chaos-dev-cluster --region us-east-1
+    ```
+
+3.  **Deploy Application**:
+    ```bash
+    kubectl apply -f argocd-apps/dev-cluster-apps.yaml
+    ```
+
+## 🎯 Accessing the Platform
+
+### ArgoCD UI
+```bash
+# Get admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+
+# Forward port
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Open https://localhost:8080
+```
+
+### Chaos Application
+```bash
+# Get Load Balancer URL
+kubectl get ingress -n dev
+```
+
+## 🧹 Cleanup
+To destroy all resources:
 ```bash
 cd infrastructure-live/dev/us-east-1/dev-cluster
-terragrunt run-all apply
+terragrunt run-all destroy
 ```

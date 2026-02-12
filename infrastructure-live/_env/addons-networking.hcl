@@ -5,9 +5,8 @@ terraform {
 inputs = {
   enable_metrics_server = true 
   enable_aws_load_balancer_controller = true 
-  enable_external_secrets = true
-  enable_argocd = true
-  argocd = {
-    namespace = "argocd"
-  }
+  
+  # Ensure we don't enable integration addons here
+  enable_external_secrets = false
+  enable_argocd = false
 }
