@@ -47,7 +47,7 @@ ingress:
   className: "nginx"
   annotations: {}
   hosts:
-    - host: chart-example.local
+    - host: dev.yossi.site
       paths:
         - path: /
           pathType: Prefix

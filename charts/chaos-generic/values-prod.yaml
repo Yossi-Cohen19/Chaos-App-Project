@@ -9,7 +9,7 @@ image:
 ingress:
   enabled: true
   hosts:
-    - host: chaos-prod.example.com
+    - host: prod.yossi.site
       paths:
         - path: /
           pathType: Prefix

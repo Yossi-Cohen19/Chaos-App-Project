@@ -8,7 +8,7 @@ image:
 ingress:
   enabled: true
   hosts:
-    - host: chaos-staging.example.com
+    - host: stage.yossi.site
       paths:
         - path: /
           pathType: Prefix
