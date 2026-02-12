@@ -4,14 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { Database, Skull, Server, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-const POD_IDS = [
-  "worker-node-xf92",
-  "worker-node-ab14",
-  "worker-node-ck77",
-  "worker-node-dz31",
-  "worker-node-ep55",
-]
-
 type LogEntry = {
   timestamp: string
   level: "INFO" | "WARN" | "ERROR" | "K8S"
@@ -27,13 +19,12 @@ const NORMAL_LOGS = [
   "Memory usage: 342MB / 512MB",
   "Heartbeat sent to control plane",
   "Request latency: 23ms avg",
-  "SSL certificate valid for 89 days",
-  "Background job completed",
 ]
 
 export function ResiliencePanel() {
-  const [hitCount, setHitCount] = useState(42847)
-  const [podId, setPodId] = useState(POD_IDS[0])
+  const [hitCount, setHitCount] = useState(0)
+  const [currentPod, setCurrentPod] = useState<string>("")
+  const [availablePods, setAvailablePods] = useState<string[]>([])
   const [isReconnecting, setIsReconnecting] = useState(false)
   const [podStatus, setPodStatus] = useState<"healthy" | "terminated" | "reconnecting">("healthy")
   const [isGlitching, setIsGlitching] = useState(false)
@@ -50,18 +41,49 @@ export function ResiliencePanel() {
     setLogs((prev) => [...prev.slice(-50), { timestamp: getTimestamp(), level, message }])
   }
 
-  // Initialize logs
+  // Fetch real database stats
   useEffect(() => {
-    const initialLogs: LogEntry[] = []
-    for (let i = 0; i < 5; i++) {
-      initialLogs.push({
-        timestamp: getTimestamp(),
-        level: "INFO",
-        message: NORMAL_LOGS[Math.floor(Math.random() * NORMAL_LOGS.length)],
-      })
+    const fetchDbStats = async () => {
+      try {
+        const response = await fetch('/api/db/stats')
+        if (response.ok) {
+          const data = await response.json()
+          if (!data.fallback) {
+            setHitCount(data.active)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch DB stats:', error)
+      }
     }
-    setLogs(initialLogs)
+
+    fetchDbStats()
+    const interval = setInterval(fetchDbStats, 5000)
+    return () => clearInterval(interval)
   }, [])
+
+  // Fetch real pod list
+  useEffect(() => {
+    const fetchPods = async () => {
+      try {
+        const response = await fetch('/api/pods')
+        if (response.ok) {
+          const data = await response.json()
+          const podNames = data.pods.map((p: any) => p.name)
+          setAvailablePods(podNames)
+          if (podNames.length > 0 && !currentPod) {
+            setCurrentPod(podNames[0])
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch pods:', error)
+      }
+    }
+
+    fetchPods()
+    const interval = setInterval(fetchPods, 10000)
+    return () => clearInterval(interval)
+  }, [currentPod])
 
   // Auto-scroll logs
   useEffect(() => {
@@ -75,64 +97,71 @@ export function ResiliencePanel() {
     if (isReconnecting) return
     const interval = setInterval(() => {
       addLog("INFO", NORMAL_LOGS[Math.floor(Math.random() * NORMAL_LOGS.length)])
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [isReconnecting])
-
-  // Simulate live counter
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isReconnecting) {
-        setHitCount((prev) => prev + Math.floor(Math.random() * 5) + 1)
-      }
-    }, 100)
+    }, 3000)
     return () => clearInterval(interval)
   }, [isReconnecting])
 
   const handleKillPod = async () => {
+    if (availablePods.length === 0) {
+      addLog("ERROR", "No pods available to delete")
+      return
+    }
+
+    // Find a pod to kill (not the current one if possible)
+    const targetPod = availablePods.length > 1
+      ? availablePods.find(p => p !== currentPod) || availablePods[0]
+      : availablePods[0]
+
     setIsReconnecting(true)
     setIsKillActive(true)
     setIsGlitching(true)
     setPodStatus("terminated")
 
-    // Call backend to kill process
+    addLog("WARN", `Deleting pod: ${targetPod}`)
+    addLog("K8S", "Sending DELETE request to K8s API...")
+
+    // Call real K8s API to delete pod
     try {
-      fetch('/api/kill', { method: 'POST' }).catch(err => console.error("Kill request sent (expecting failure as server dies):", err));
-    } catch (e) {
-      // Ignore network errors as server dies
+      const response = await fetch(`/api/pods?name=${encodeURIComponent(targetPod)}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        addLog("K8S", `Pod ${targetPod} deleted successfully`)
+        addLog("K8S", "ReplicaSet controller creating replacement pod...")
+      } else {
+        const error = await response.json()
+        addLog("ERROR", `Failed to delete pod: ${error.message}`)
+      }
+    } catch (error: any) {
+      addLog("ERROR", `K8s API error: ${error.message}`)
     }
 
-    // Inject termination logs rapidly
-    addLog("WARN", `SIGTERM received for ${podId}`)
-    setTimeout(() => addLog("ERROR", "Process terminating..."), 200)
-    setTimeout(() => addLog("K8S", "Pod marked for deletion"), 400)
-    setTimeout(() => addLog("K8S", "Scaling up ReplicaSet..."), 600)
-    setTimeout(() => addLog("WARN", "Draining connections..."), 800)
-    setTimeout(() => addLog("K8S", "New pod scheduled on node-pool-2"), 1000)
-
-    // Stop intense button pulse after 1s
-    setTimeout(() => {
-      setIsKillActive(false)
-    }, 1000)
-
-    // Transition to reconnecting
+    setTimeout(() => setIsKillActive(false), 1000)
     setTimeout(() => {
       setPodStatus("reconnecting")
-      addLog("K8S", "Waiting for pod readiness probe...")
-    }, 1200)
+      addLog("K8S", "Waiting for new pod to become ready...")
+    }, 1500)
 
     // Recovery
     setTimeout(() => {
       setIsGlitching(false)
-      const currentIndex = POD_IDS.indexOf(podId)
-      const nextIndex = (currentIndex + 1) % POD_IDS.length
-      const newPod = POD_IDS[nextIndex]
-      setPodId(newPod)
       setPodStatus("healthy")
       setIsReconnecting(false)
-      addLog("INFO", `Started container on ${newPod}`)
-      addLog("INFO", "Health check passed - 200 OK")
-    }, 6000) // Extended recovery time since server needs to restart
+      addLog("INFO", "New pod healthy and serving traffic")
+
+      // Refresh pod list
+      fetch('/api/pods')
+        .then(r => r.json())
+        .then(data => {
+          const podNames = data.pods.map((p: any) => p.name)
+          setAvailablePods(podNames)
+          if (podNames.length > 0) {
+            setCurrentPod(podNames[0])
+          }
+        })
+        .catch(console.error)
+    }, 8000)
   }
 
   const getLogColor = (level: LogEntry["level"]) => {
@@ -174,7 +203,7 @@ export function ResiliencePanel() {
             {hitCount.toLocaleString()}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground mt-2 font-sans uppercase tracking-widest">Database Hits</p>
+        <p className="text-sm text-muted-foreground mt-2 font-sans uppercase tracking-widest">Active Connections</p>
       </div>
 
       {/* CRT Terminal Log */}
@@ -210,10 +239,10 @@ export function ResiliencePanel() {
           </div>
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-mono tracking-wider ${podStatus === "healthy"
-                ? "bg-accent/20 text-accent border border-accent/40 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
-                : podStatus === "terminated"
-                  ? "bg-destructive/20 text-destructive border border-destructive/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]"
-                  : "bg-amber-500/20 text-amber-500 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
+              ? "bg-accent/20 text-accent border border-accent/40 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+              : podStatus === "terminated"
+                ? "bg-destructive/20 text-destructive border border-destructive/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]"
+                : "bg-amber-500/20 text-amber-500 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
               }`}
           >
             {podStatus === "reconnecting" && <RefreshCw className="h-3 w-3 animate-spin" />}
@@ -221,15 +250,15 @@ export function ResiliencePanel() {
           </div>
         </div>
         <div
-          className={`font-mono text-lg flex items-center gap-2 ${isGlitching ? "text-destructive glitch-text" : "text-primary neon-text"
+          className={`font-mono text-sm flex items-center gap-2 ${isGlitching ? "text-destructive glitch-text" : "text-primary neon-text"
             }`}
         >
           <span>
             {podStatus === "terminated"
-              ? "STATUS: TERMINATING..."
+              ? "Deleting pod..."
               : podStatus === "reconnecting"
-                ? "Failover in progress..."
-                : podId}
+                ? "Waiting for replacement..."
+                : currentPod || "Loading..."}
           </span>
         </div>
       </div>
@@ -237,17 +266,17 @@ export function ResiliencePanel() {
       {/* Kill Button - Hazard Style */}
       <Button
         onClick={handleKillPod}
-        disabled={isReconnecting}
+        disabled={isReconnecting || availablePods.length === 0}
         className={`mt-4 w-full h-14 bg-destructive/20 hover:bg-destructive/40 border-2 border-destructive/60 text-destructive font-mono font-bold text-base tracking-wider transition-all duration-300 disabled:opacity-50 relative overflow-hidden ${isKillActive ? "kill-active" : "hazard-btn"
           }`}
       >
         <Skull className="h-5 w-5 mr-2" />
-        {isReconnecting ? "RECONNECTING..." : "KILL POD PROCESS"}
+        {isReconnecting ? "DELETING POD..." : `KILL POD (${availablePods.length} available)`}
       </Button>
 
       {/* Info Footer */}
       <p className="text-xs text-muted-foreground text-center mt-3 font-sans">
-        Simulates chaos engineering - K8s will auto-failover to healthy replica
+        Real chaos engineering - Deletes actual K8s pod triggering auto-recovery
       </p>
     </div>
   )

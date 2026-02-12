@@ -112,6 +112,10 @@ externalSecret:
         key: chaos-dev-db # Name of secret in AWS Secrets Manager
         property: DATABASE_URL # Key inside the secret JSON, adjust as needed
 
-env: []
-# - name: "MY_VAR"
-#   value: "my-value"
+env:
+  - name: PROMETHEUS_URL
+    value: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  - name: NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace

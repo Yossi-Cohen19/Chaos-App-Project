@@ -7,16 +7,16 @@ function generateSparklineData(length: number, baseValue: number, variance: numb
   return Array.from({ length }, () => baseValue + (Math.random() - 0.5) * variance * 2)
 }
 
-function SparklineChart({ 
-  data, 
-  color, 
+function SparklineChart({
+  data,
+  color,
   fillColor,
-  label, 
-  value, 
+  label,
+  value,
   unit,
   icon: Icon,
-  isAlert = false 
-}: { 
+  isAlert = false
+}: {
   data: number[]
   color: string
   fillColor: string
@@ -29,7 +29,7 @@ function SparklineChart({
   const max = Math.max(...data)
   const min = Math.min(...data)
   const range = max - min || 1
-  
+
   const points = data
     .map((val, i) => {
       const x = (i / (data.length - 1)) * 100
@@ -37,8 +37,7 @@ function SparklineChart({
       return `${x},${y}`
     })
     .join(" ")
-  
-  // Area fill path
+
   const areaPoints = `0,100 ${points} 100,100`
 
   return (
@@ -54,7 +53,6 @@ function SparklineChart({
         </div>
       </div>
       <svg viewBox="0 0 100 100" className="w-full h-16" preserveAspectRatio="none">
-        {/* Enhanced glow effect */}
         <defs>
           <filter id={`glow-${label}`} x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -69,16 +67,13 @@ function SparklineChart({
             <stop offset="100%" stopColor={fillColor} stopOpacity="0" />
           </linearGradient>
         </defs>
-        {/* Grid lines */}
         <line x1="0" y1="25" x2="100" y2="25" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.5" />
         <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.5" />
         <line x1="0" y1="75" x2="100" y2="75" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.5" />
-        {/* Area fill */}
         <polygon
           points={areaPoints}
           fill={`url(#gradient-${label})`}
         />
-        {/* Main line with stronger glow */}
         <polyline
           points={points}
           fill="none"
@@ -89,7 +84,6 @@ function SparklineChart({
           className={color}
           filter={`url(#glow-${label})`}
         />
-        {/* Secondary glow layer */}
         <polyline
           points={points}
           fill="none"
@@ -109,23 +103,39 @@ export function MetricsFooter() {
   const [memoryData, setMemoryData] = useState(() => generateSparklineData(20, 65, 10))
   const [cpuData, setCpuData] = useState(() => generateSparklineData(20, 45, 15))
   const [errorData, setErrorData] = useState(() => generateSparklineData(20, 0.5, 0.3))
+  const [useMockData, setUseMockData] = useState(true)
 
+  // Fetch real metrics periodically
   useEffect(() => {
-    const interval = setInterval(() => {
-      setMemoryData((prev) => {
-        const newData = [...prev.slice(1), 65 + (Math.random() - 0.5) * 20]
-        return newData
-      })
-      setCpuData((prev) => {
-        const newData = [...prev.slice(1), 45 + (Math.random() - 0.5) * 30]
-        return newData
-      })
-      setErrorData((prev) => {
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch('/api/metrics')
+        if (response.ok) {
+          const data = await response.json()
+          if (!data.fallback) {
+            // Update with real data
+            setCpuData(prev => [...prev.slice(1), data.cpu || 0])
+            setMemoryData(prev => [...prev.slice(1), data.memory / 10 || 0]) // Scale memory from MB to %
+            setErrorData(prev => [...prev.slice(1), Math.random() * 0.8]) // Error rate still simulated
+            setUseMockData(false)
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error)
+      }
+
+      // Fallback to mock data
+      setUseMockData(true)
+      setMemoryData(prev => [...prev.slice(1), 65 + (Math.random() - 0.5) * 20])
+      setCpuData(prev => [...prev.slice(1), 45 + (Math.random() - 0.5) * 30])
+      setErrorData(prev => {
         const spike = Math.random() > 0.9 ? 5 : 0
-        const newData = [...prev.slice(1), Math.max(0, 0.5 + (Math.random() - 0.5) * 0.6 + spike)]
-        return newData
+        return [...prev.slice(1), Math.max(0, 0.5 + (Math.random() - 0.5) * 0.6 + spike)]
       })
-    }, 1000)
+    }
+
+    const interval = setInterval(fetchMetrics, 2000)
     return () => clearInterval(interval)
   }, [])
 
@@ -139,7 +149,9 @@ export function MetricsFooter() {
       <div className="flex items-center gap-2 mb-3">
         <Activity className="h-4 w-4 text-primary neon-text" />
         <span className="text-xs text-muted-foreground uppercase tracking-widest font-sans">Real-time Observability</span>
-        <span className="text-xs text-primary/60 font-mono tracking-wider">Prometheus/Grafana</span>
+        <span className="text-xs text-primary/60 font-mono tracking-wider">
+          {useMockData ? 'Mock Mode' : 'Live Prometheus'}
+        </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SparklineChart
