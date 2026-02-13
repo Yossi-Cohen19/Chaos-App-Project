@@ -23,6 +23,7 @@ terraform {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
     helm = { source = "hashicorp/helm", version = "~> 2.0" }
     kubernetes = { source = "hashicorp/kubernetes", version = "~> 2.0" }
+    kubectl = { source = "gavinbunney/kubectl", version = "~> 1.14" }
   }
 }
 EOF
@@ -48,6 +49,13 @@ provider "kubernetes" {
   host                   = "${dependency.eks.outputs.cluster_endpoint}"
   cluster_ca_certificate = base64decode("${dependency.eks.outputs.cluster_certificate_authority_data}")
   token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
+provider "kubectl" {
+  host                   = "${dependency.eks.outputs.cluster_endpoint}"
+  cluster_ca_certificate = base64decode("${dependency.eks.outputs.cluster_certificate_authority_data}")
+  token                  = data.aws_eks_cluster_auth.cluster.token
+  load_config_file       = false
 }
 EOF
 }

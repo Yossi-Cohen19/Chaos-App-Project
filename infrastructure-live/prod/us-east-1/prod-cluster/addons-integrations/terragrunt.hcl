@@ -21,7 +21,7 @@ dependency "external_secrets_irsa" {
   config_path = "../external-secrets-irsa"
   
   mock_outputs = {
-    iam_role_arn = "arn:aws:iam::${get_aws_account_id()}:role/external-secrets-operator-mock"
+    iam_role_arn = "arn:aws:iam::${get_aws_account_id()}:role/external-secrets-operator-prod-mock"
   }
   
   skip_outputs = false
@@ -36,8 +36,7 @@ inputs = {
 
   gitops_apps = [
     "${get_terragrunt_dir()}/../../../../../argocd-apps/ingress-nginx.yaml",
-    "${get_terragrunt_dir()}/../../../../../argocd-apps/dev-cluster-apps.yaml",
+    "${get_terragrunt_dir()}/../../../../../argocd-apps/prod-cluster-apps.yaml",
     "${get_terragrunt_dir()}/../../../../../argocd-apps/prometheus.yaml"
   ]
 }
-

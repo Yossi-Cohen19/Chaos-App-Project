@@ -5,90 +5,51 @@ import { useState, useEffect, useRef } from "react"
 import { Cpu, DollarSign, TrendingUp, Zap, Server } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-const BASE_REPLICAS = 2
 const MAX_REPLICAS = 10
 const COST_PER_REPLICA = 0.02
 
 export function ScalingPanel() {
   const [isHighLoad, setIsHighLoad] = useState(false)
-  const [replicas, setReplicas] = useState(BASE_REPLICAS)
-  const [cpuLoad, setCpuLoad] = useState(15)
+  const [replicas, setReplicas] = useState(1)
+  const [cpuLoad, setCpuLoad] = useState(0)
   const [isScaling, setIsScaling] = useState(false)
-  const [animatingReplicas, setAnimatingReplicas] = useState<number[]>([0, 1])
-  const scalingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const cpuAnimationRef = useRef<NodeJS.Timeout | null>(null)
+  const [animatingReplicas, setAnimatingReplicas] = useState<number[]>([0])
+  const [useMockData, setUseMockData] = useState(false)
+
+  const [maxReplicas, setMaxReplicas] = useState(10)
 
   const hourlyCost = replicas * COST_PER_REPLICA
 
-  // Smooth CPU animation over 2 seconds
+  // Fetch real metrics from Prometheus
   useEffect(() => {
-    if (cpuAnimationRef.current) {
-      clearInterval(cpuAnimationRef.current)
-    }
-
-    const targetCpu = isHighLoad ? 85 : 15
-    const steps = 40 // 2 seconds / 50ms intervals
-    const increment = (targetCpu - cpuLoad) / steps
-
-    if (Math.abs(targetCpu - cpuLoad) < 1) return
-
-    let currentStep = 0
-    cpuAnimationRef.current = setInterval(() => {
-      currentStep++
-      setCpuLoad((prev) => {
-        const newVal = prev + increment
-        if (currentStep >= steps) {
-          if (cpuAnimationRef.current) clearInterval(cpuAnimationRef.current)
-          return targetCpu
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch('/api/metrics')
+        if (response.ok) {
+          const data = await response.json()
+          if (!data.fallback) {
+            setCpuLoad(Math.round(data.cpu))
+            setReplicas(data.replicas)
+            if (data.maxReplicas) setMaxReplicas(data.maxReplicas)
+            setAnimatingReplicas(Array.from({ length: data.replicas }, (_, i) => i))
+            setUseMockData(false)
+            return
+          }
         }
-        return Math.round(newVal)
-      })
-    }, 50)
-
-    return () => {
-      if (cpuAnimationRef.current) clearInterval(cpuAnimationRef.current)
-    }
-  }, [isHighLoad])
-
-  // Sequential replica scaling animation
-  useEffect(() => {
-    if (scalingTimeoutRef.current) {
-      clearTimeout(scalingTimeoutRef.current)
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error)
+      }
+      // Fallback to mock data if API fails
+      setUseMockData(true)
     }
 
-    const targetReplicas = isHighLoad ? MAX_REPLICAS : BASE_REPLICAS
+    // Initial fetch
+    fetchMetrics()
 
-    if (replicas === targetReplicas) {
-      setIsScaling(false)
-      return
-    }
-
-    setIsScaling(true)
-
-    const scaleStep = () => {
-      setReplicas((prev) => {
-        const next = isHighLoad ? prev + 1 : prev - 1
-        const newAnimating = Array.from({ length: next }, (_, i) => i)
-        setAnimatingReplicas(newAnimating)
-
-        if ((isHighLoad && next >= MAX_REPLICAS) || (!isHighLoad && next <= BASE_REPLICAS)) {
-          setIsScaling(false)
-          return isHighLoad ? MAX_REPLICAS : BASE_REPLICAS
-        }
-
-        // Schedule next step
-        scalingTimeoutRef.current = setTimeout(scaleStep, isHighLoad ? 200 : 150)
-        return next
-      })
-    }
-
-    // Start scaling after a brief delay
-    scalingTimeoutRef.current = setTimeout(scaleStep, 300)
-
-    return () => {
-      if (scalingTimeoutRef.current) clearTimeout(scalingTimeoutRef.current)
-    }
-  }, [isHighLoad])
+    // Poll every 5 seconds
+    const interval = setInterval(fetchMetrics, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div
@@ -102,7 +63,9 @@ export function ScalingPanel() {
         </div>
         <div>
           <h2 className="text-lg font-semibold text-foreground font-sans">HPA & Cost Analysis</h2>
-          <p className="text-xs text-amber-500/70 font-mono tracking-wider">Horizontal Pod Autoscaler</p>
+          <p className="text-xs text-amber-500/70 font-mono tracking-wider">
+            {useMockData ? 'Mock Mode' : 'Live Prometheus Data'}
+          </p>
         </div>
       </div>
 
@@ -121,13 +84,13 @@ export function ScalingPanel() {
         </div>
         <div className="h-4 rounded-full bg-secondary/80 overflow-hidden border border-border/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]">
           <div
-            className={`h-full rounded-full transition-all duration-100 ease-linear ${cpuLoad > 80
-                ? "bg-gradient-to-r from-destructive/80 to-destructive shadow-[0_0_15px_rgba(244,63,94,0.6)]"
-                : cpuLoad > 50
-                  ? "bg-gradient-to-r from-amber-600 to-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.6)]"
-                  : "bg-gradient-to-r from-accent/80 to-accent shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+            className={`h-full rounded-full transition-all duration-500 ease-linear ${cpuLoad > 80
+              ? "bg-gradient-to-r from-destructive/80 to-destructive shadow-[0_0_15px_rgba(244,63,94,0.6)]"
+              : cpuLoad > 50
+                ? "bg-gradient-to-r from-amber-600 to-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.6)]"
+                : "bg-gradient-to-r from-accent/80 to-accent shadow-[0_0_15px_rgba(16,185,129,0.5)]"
               }`}
-            style={{ width: `${cpuLoad}%` }}
+            style={{ width: `${Math.min(cpuLoad, 100)}%` }}
           />
         </div>
       </div>
@@ -142,27 +105,23 @@ export function ScalingPanel() {
           <div className="flex items-center gap-2">
             <span className="font-mono text-2xl text-primary neon-text">{replicas}</span>
             <span className="text-muted-foreground">/</span>
-            <span className="font-mono text-sm text-muted-foreground">{MAX_REPLICAS}</span>
+            <span className="font-mono text-sm text-muted-foreground">{maxReplicas}</span>
             {isScaling && <Zap className="h-4 w-4 text-amber-500 animate-pulse neon-text" />}
           </div>
         </div>
 
-        {/* Replica Bar Chart - Server Rack Style with Sequential Animation */}
+        {/* Replica Bar Chart - Server Rack Style */}
         <div className="grid grid-cols-10 gap-2 mb-6">
-          {Array.from({ length: MAX_REPLICAS }).map((_, i) => {
+          {Array.from({ length: maxReplicas }).map((_, i) => {
             const isActive = animatingReplicas.includes(i)
-            const isNewlyAdded = isActive && i === animatingReplicas.length - 1 && isScaling
 
             return (
               <div
                 key={i}
                 className={`h-24 rounded relative transition-all duration-300 ${isActive
-                    ? `server-unit border border-primary/60 ${isNewlyAdded ? "server-illuminate" : ""}`
-                    : "bg-secondary/30 border border-border/20"
+                  ? `server-unit border border-primary/60`
+                  : "bg-secondary/30 border border-border/20"
                   }`}
-                style={{
-                  transitionDelay: isActive ? `${i * 50}ms` : "0ms",
-                }}
               >
                 {isActive && (
                   <>
@@ -189,10 +148,10 @@ export function ScalingPanel() {
           </div>
           <div
             className={`font-mono text-2xl tracking-wider transition-all duration-300 ${hourlyCost > 0.15
-                ? "text-destructive neon-text"
-                : hourlyCost > 0.06
-                  ? "text-amber-500 neon-text"
-                  : "text-accent cost-glow"
+              ? "text-destructive neon-text"
+              : hourlyCost > 0.06
+                ? "text-amber-500 neon-text"
+                : "text-accent cost-glow"
               }`}
           >
             ${hourlyCost.toFixed(2)}
@@ -221,8 +180,8 @@ export function ScalingPanel() {
           }
         }}
         className={`w-full h-14 font-mono font-bold text-base tracking-wider transition-all duration-300 ${isHighLoad
-            ? "bg-amber-500/30 hover:bg-amber-500/40 border-2 border-amber-500/60 text-amber-500 heat-btn"
-            : "bg-amber-500/10 hover:bg-amber-500/20 border-2 border-amber-500/30 text-amber-500"
+          ? "bg-amber-500/30 hover:bg-amber-500/40 border-2 border-amber-500/60 text-amber-500 heat-btn"
+          : "bg-amber-500/10 hover:bg-amber-500/20 border-2 border-amber-500/30 text-amber-500"
           }`}
       >
         <Zap className="h-5 w-5 mr-2" />
@@ -231,7 +190,7 @@ export function ScalingPanel() {
 
       {/* Info Footer */}
       <p className="text-xs text-muted-foreground text-center mt-4 font-sans">
-        Watch HPA scale pods based on CPU threshold (target: 50%)
+        {useMockData ? 'Using mock data (Prometheus unavailable)' : 'Real-time metrics from Prometheus'}
       </p>
     </div>
   )

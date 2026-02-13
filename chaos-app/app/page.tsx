@@ -28,7 +28,11 @@ export default function DevOpsDashboard() {
       <div className="fixed inset-0 bg-gradient-to-b from-cyan-900/10 via-transparent to-indigo-900/10 pointer-events-none" />
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        <DashboardHeader />
+        <DashboardHeader
+          environment={process.env.NEXT_PUBLIC_ENVIRONMENT || "Dev Cluster"}
+          version={process.env.NEXT_PUBLIC_BUILD_VERSION || "v1.0.0"}
+          commit={process.env.NEXT_PUBLIC_COMMIT_SHA || "HEAD"}
+        />
 
         <main className="flex-1 p-6">
           <div className="flex justify-end mb-4">

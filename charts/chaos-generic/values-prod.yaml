@@ -1,30 +1,31 @@
-# Staging-specific overrides for chaos-generic Helm chart
+# Production-specific overrides for chaos-generic Helm chart
 
-replicaCount: 2
+replicaCount: 3
 
 image:
-  tag: "latest"  # Will be updated by CI/CD
+  repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
+  tag: "latest"
 
 ingress:
   enabled: true
   hosts:
-    - host: stage.yossi.site
+    - host: prod.yossi.site
       paths:
         - path: /
           pathType: Prefix
 
 resources:
   limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
     cpu: 200m
     memory: 256Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
 
 autoscaling:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 5
+  minReplicas: 3
+  maxReplicas: 10
   targetCPUUtilizationPercentage: 70
 
 serviceAccount:
@@ -38,9 +39,5 @@ externalSecret:
   data:
     - secretKey: DATABASE_URL
       remoteRef:
-        key: chaos-dev-db  # Shared DB in dev-cluster
+        key: chaos-prod-db
         property: DATABASE_URL
-  secretStoreRef:
-    name: chaos-secret-store
-    kind: ClusterSecretStore
-

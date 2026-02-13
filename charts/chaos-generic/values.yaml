@@ -8,7 +8,7 @@ image:
   repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-dev
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "sha-8fcfdc7275170efef8bef2271430545b87983d51"
+  tag: "sha-a2136eae9d37c07f0c11521b423923cb4eda786a"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -22,7 +22,6 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
-  # Specific permissions for Chaos functionality (Pod killing)
   chaosRole: true
 
 podAnnotations: {}
@@ -45,38 +44,30 @@ service:
 
 ingress:
   enabled: false
-  className: "alb"
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-    alb.ingress.kubernetes.io/healthcheck-path: /api/health
-    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
-    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
-    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
-    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+  className: "nginx"
+  annotations: {}
   hosts:
-    - host: chart-example.local
+    - host: dev.yossi.site
       paths:
         - path: /
           pathType: Prefix
 
-resources:
+resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  limits:
-    cpu: 100m
-    memory: 128Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 10
+  maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
@@ -86,32 +77,34 @@ tolerations: []
 
 affinity: {}
 
+# External Secret integration
+externalSecret:
+  enabled: false
+  targetSecretName: "chaos-db-secret"
+  data: []
+  # - secretKey: DATABASE_URL
+  #   remoteRef:
+  #     key: chaos-secret
+  #     property: DATABASE_URL
+
+# Environment variables to pass to the container
+env: []
+# - name: FOO
+#   value: "bar"
+
+# New props
+nextPublicEnvironment: "AWS EKS (us-east-1)"
+nextPublicCommitSha: "HEAD"
+# ClusterSecretStore configuration
 clusterSecretStore:
-  enabled: true
-  name: "aws-secrets-manager"
+  enabled: false
+  name: "chaos-secret-store"
   provider:
     aws:
-      service: SecretsManager
-      region: us-east-1
+      service: "SecretsManager"
+      region: "us-east-1"
       auth:
         jwt:
-          serviceAccountRef:
-            name: external-secrets
-            namespace: external-secrets
-
-externalSecret:
-  enabled: true
-  refreshInterval: "1h"
-  secretStoreRef:
-    name: "aws-secrets-manager" # Assumed cluster-wide ClusterSecretStore
-    kind: ClusterSecretStore
-  targetSecretName: "chaos-app-db-creds"
-  data:
-    - secretKey: DATABASE_URL
-      remoteRef:
-        key: chaos-dev-db # Name of secret in AWS Secrets Manager
-        property: DATABASE_URL # Key inside the secret JSON, adjust as needed
-
-env: []
-# - name: "MY_VAR"
-#   value: "my-value"
+      serviceAccountRef:
+            name: "external-secrets-sa"
+            namespace: "external-secrets"

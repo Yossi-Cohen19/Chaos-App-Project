@@ -8,10 +8,9 @@ The platform is designed to simulate infrastructure failures and stress tests to
 ## 🏗 Repository Structure
 
 ```
-├── chaos-nextjs-app/              # The application source code
-│   └── dev-ops-resilience-platform/
-│       ├── app/api/               # Chaos Experiments API (kill, stress, health)
-│       └── Dockerfile             # Multi-stage Docker build (Node.js 20 Alpine)
+├── chaos-app/                     # The application source code
+│   ├── app/api/               # Chaos Experiments API (kill, stress, health)
+│   └── Dockerfile             # Multi-stage Docker build (Node.js 20 Alpine)
 │
 ├── infrastructure-live/           # Infrastructure as Code (Terragrunt)
 │   ├── _env/                      # DRY configurations (inherit-based architecture)
@@ -31,7 +30,7 @@ The platform is designed to simulate infrastructure failures and stress tests to
 
 ## 🚀 Key Components
 
-### 1. Application (`chaos-nextjs-app`)
+### 1. Application (`chaos-app`)
 - **Framework**: Next.js 14 (React 19).
 - **Chaos Features**:
     - **`/api/kill`**: Triggers a hard crash (`process.exit(1)`).
