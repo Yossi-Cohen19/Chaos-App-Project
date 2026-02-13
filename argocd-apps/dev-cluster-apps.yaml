@@ -21,6 +21,8 @@ spec:
           value: "true"
         - name: ingress.hosts[0].host
           value: chaos-dev.example.com
+        - name: clusterSecretStore.enabled
+          value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: dev

@@ -40,4 +40,7 @@ externalSecret:
       remoteRef:
         key: chaos-dev-db  # Shared DB in dev-cluster
         property: DATABASE_URL
+  secretStoreRef:
+    name: chaos-secret-store
+    kind: ClusterSecretStore
 

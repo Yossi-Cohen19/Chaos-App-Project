@@ -105,6 +105,6 @@ clusterSecretStore:
       region: "us-east-1"
       auth:
         jwt:
-          serviceAccountRef:
-            name: "external-secrets-irsa"
+      serviceAccountRef:
+            name: "external-secrets-sa"
             namespace: "external-secrets"

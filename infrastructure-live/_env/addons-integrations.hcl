@@ -43,7 +43,7 @@ locals {
 resource "kubectl_manifest" "gitops_apps" {
   for_each  = local.all_docs
   yaml_body = each.value
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [module.argocd]
 }
 EOF
 }
