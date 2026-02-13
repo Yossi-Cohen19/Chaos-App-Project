@@ -33,5 +33,11 @@ inputs = {
   external_secrets = {
     service_account_role_arn = dependency.external_secrets_irsa.outputs.iam_role_arn
   }
+
+  gitops_apps = [
+    "${get_terragrunt_dir()}/../../../../../argocd-apps/ingress-nginx.yaml",
+    "${get_terragrunt_dir()}/../../../../../argocd-apps/dev-cluster-apps.yaml",
+    "${get_terragrunt_dir()}/../../../../../argocd-apps/prometheus.yaml"
+  ]
 }
 

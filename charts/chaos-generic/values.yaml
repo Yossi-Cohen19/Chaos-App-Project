@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
+  repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-dev
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "sha-bf633c4c2e7b25c3a88aec9313de41c3403c7dd8"

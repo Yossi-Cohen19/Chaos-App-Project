@@ -3,7 +3,7 @@
 replicaCount: 3
 
 image:
-  repository: PLACEHOLDER.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
+  repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
   tag: "latest"
 
 ingress:
