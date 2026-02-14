@@ -63,3 +63,5 @@ clusterSecretStore:
 
 awsRegion: "us-east-1"
 nextPublicEnvironment: "AWS EKS (staging)"
+nextPublicCommitSha: "e2466f7"
+
