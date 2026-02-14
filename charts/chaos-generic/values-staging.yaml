@@ -37,7 +37,6 @@ serviceAccount:
 
 externalSecret:
   enabled: true
-  data:
     - secretKey: username
       remoteRef:
         key: rds!db-623b3f64-c63e-48b3-a71d-ad96bf01d9e5
@@ -46,18 +45,10 @@ externalSecret:
       remoteRef:
         key: rds!db-623b3f64-c63e-48b3-a71d-ad96bf01d9e5
         property: password
-    - secretKey: host
-      remoteRef:
-        key: rds!db-623b3f64-c63e-48b3-a71d-ad96bf01d9e5
-        property: host
-    - secretKey: port
-      remoteRef:
-        key: rds!db-623b3f64-c63e-48b3-a71d-ad96bf01d9e5
-        property: port
   template:
     engineVersion: v2
     data:
-      DATABASE_URL: "postgresql://{{ .username }}:{{ .password }}@{{ .host }}:{{ .port }}/postgres?sslmode=no-verify"
+      DATABASE_URL: "postgresql://{{ .username }}:{{ .password }}@chaos-dev-db.c8p88k6qo4wv.us-east-1.rds.amazonaws.com:5432/postgres?sslmode=no-verify"
   secretStoreRef:
     name: chaos-secret-store
     kind: ClusterSecretStore
