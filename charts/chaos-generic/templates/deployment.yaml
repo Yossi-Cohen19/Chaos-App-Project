@@ -41,10 +41,20 @@ spec:
             httpGet:
               path: /api/health
               port: http
+            initialDelaySeconds: {{ .Values.healthProbes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthProbes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthProbes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthProbes.liveness.failureThreshold }}
+            successThreshold: {{ .Values.healthProbes.liveness.successThreshold }}
           readinessProbe:
             httpGet:
               path: /api/health
               port: http
+            initialDelaySeconds: {{ .Values.healthProbes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthProbes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthProbes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthProbes.readiness.failureThreshold }}
+            successThreshold: {{ .Values.healthProbes.readiness.successThreshold }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           env:

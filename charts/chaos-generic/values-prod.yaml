@@ -8,6 +8,9 @@ image:
 
 ingress:
   enabled: true
+  tls: true
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "prod.yossi.site"
   hosts:
     - host: prod.yossi.site
       paths:
@@ -25,7 +28,7 @@ resources:
 autoscaling:
   enabled: true
   minReplicas: 3
-  maxReplicas: 10
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 70
 
 serviceAccount:

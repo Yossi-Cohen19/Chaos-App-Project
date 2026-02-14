@@ -93,8 +93,8 @@ env: []
 #   value: "bar"
 
 # New props
-nextPublicEnvironment: "AWS EKS (us-east-1)"
-nextPublicCommitSha: "HEAD"
+nextPublicEnvironment: "AWS EKS (dev)"
+nextPublicCommitSha: "a2136ea"
 # ClusterSecretStore configuration
 clusterSecretStore:
   enabled: false
@@ -108,3 +108,39 @@ clusterSecretStore:
       serviceAccountRef:
             name: "external-secrets-sa"
             namespace: "external-secrets"
+
+# Health probes configuration
+healthProbes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+
+# Monitoring (Prometheus ServiceMonitor)
+monitoring:
+  enabled: false
+  serviceMonitor:
+    path: /metrics
+    interval: 30s

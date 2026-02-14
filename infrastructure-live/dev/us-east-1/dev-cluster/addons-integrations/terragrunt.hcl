@@ -12,16 +12,21 @@ include "k8s" {
 }
 
 # Specific dependencies
-dependency "addons_networking" {
-  config_path = "../addons"
-  skip_outputs = true
-}
-
 dependency "external_secrets_irsa" {
   config_path = "../external-secrets-irsa"
   
   mock_outputs = {
     iam_role_arn = "arn:aws:iam::${get_aws_account_id()}:role/external-secrets-operator-mock"
+  }
+  
+  skip_outputs = false
+}
+
+dependency "external_dns_irsa" {
+  config_path = "../external-dns-irsa"
+  
+  mock_outputs = {
+    iam_role_arn = "arn:aws:iam::${get_aws_account_id()}:role/external-dns-mock"
   }
   
   skip_outputs = false
@@ -34,10 +39,14 @@ inputs = {
     service_account_role_arn = dependency.external_secrets_irsa.outputs.iam_role_arn
   }
 
+  # Pass IRSA role ARN for External DNS
+  external_dns = {
+    service_account_role_arn = dependency.external_dns_irsa.outputs.iam_role_arn
+  }
+
+  # ArgoCD App of Apps - Root application that auto-discovers child apps
   gitops_apps = [
-    "${get_terragrunt_dir()}/../../../../../argocd-apps/ingress-nginx.yaml",
-    "${get_terragrunt_dir()}/../../../../../argocd-apps/dev-cluster-apps.yaml",
-    "${get_terragrunt_dir()}/../../../../../argocd-apps/prometheus.yaml"
+    "${get_terragrunt_dir()}/../../../../../argocd-apps/clusters/dev.yaml",
   ]
 }
 
