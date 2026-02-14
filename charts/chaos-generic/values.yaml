@@ -8,7 +8,7 @@ image:
   repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-dev
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "sha-1c4752f77ce0f0da1b9d91aa6006c897986eb8e7"
+  tag: "sha-23321eed81a1982e7a03858e79a6b41f2358afc0"
 
 imagePullSecrets: []
 nameOverride: ""
