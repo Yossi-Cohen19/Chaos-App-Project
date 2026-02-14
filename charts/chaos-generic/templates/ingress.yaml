@@ -5,12 +5,10 @@ metadata:
   name: {{ include "chaos-generic.fullname" . }}
   labels:
     {{- include "chaos-generic.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
   annotations:
-    # Force HTTPS redirect at the nginx ingress level
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.ingress.tls }}
