@@ -42,7 +42,10 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         const podName = searchParams.get('name');
         const random = searchParams.get('random');
-        const labelSelector = searchParams.get('labelSelector') || 'app.kubernetes.io/instance=chaos-app-dev';
+
+        // Use a more generic selector or one based on the current release instance if possible
+        // Ideally we should use the same label selector that the deployment uses
+        const labelSelector = searchParams.get('labelSelector') || 'app.kubernetes.io/name=chaos-generic';
 
         let targetPodName = podName;
 
@@ -63,7 +66,7 @@ export async function DELETE(request: Request) {
 
             if (availablePods.length === 0) {
                 return NextResponse.json(
-                    { error: 'No running pods found matching selector' },
+                    { error: 'No running pods found matching selector', message: `No pods found in namespace ${namespace} with selector ${labelSelector}` },
                     { status: 404 }
                 );
             }
@@ -75,7 +78,7 @@ export async function DELETE(request: Request) {
 
         if (!targetPodName) {
             return NextResponse.json(
-                { error: 'Pod name is required or no pods available' },
+                { error: 'Pod name is required or no pods available', message: 'Could not determine target pod name' },
                 { status: 400 }
             );
         }
@@ -91,7 +94,7 @@ export async function DELETE(request: Request) {
     } catch (error: any) {
         console.error('Pod deletion error:', error);
         return NextResponse.json(
-            { error: 'Failed to delete pod', message: error.message },
+            { error: 'Failed to delete pod', message: error.body?.message || error.message || 'Unknown error' },
             { status: 500 }
         );
     }
