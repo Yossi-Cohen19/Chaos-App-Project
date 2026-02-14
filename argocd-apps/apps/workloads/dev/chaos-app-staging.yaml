@@ -16,9 +16,7 @@ spec:
       valueFiles:
         - values.yaml
         - values-staging.yaml
-      parameters:
-        - name: image.tag
-          value: latest
+
   
   destination:
     server: https://kubernetes.default.svc
