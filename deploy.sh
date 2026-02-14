@@ -104,8 +104,8 @@ export GITHUB_REPO="${GITHUB_REPO}"
 # Deploy all infrastructure with one command
 print_step "Step 1: Initializing Infrastructure (${ENV})"
 cd "${SCRIPT_DIR}/infrastructure-live/${CLUSTER_DIR}"
-echo "Running: terragrunt run-all init"
-terragrunt run-all init
+echo "Running: terragrunt run-all init -upgrade"
+terragrunt run-all init -upgrade
 echo -e "${GREEN}✓ Infrastructure initialized${NC}"
 
 print_step "Step 2: Deploying All Infrastructure (${ENV})"
