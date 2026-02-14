@@ -1,0 +1,41 @@
+# Dev-specific overrides for chaos-generic Helm chart
+
+replicaCount: 1
+
+image:
+  tag: "latest"  # Will be updated by CI/CD
+
+ingress:
+  enabled: false  # Dev typically accessed via port-forward or LoadBalancer
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  chaosRole: true  # Enable RBAC for chaos operations (pod deletion, etc.)
+
+# External secrets disabled for dev - DATABASE_URL not configured
+# UI will gracefully show 0 connections (fallback mode)
+externalSecret:
+  enabled: false
+
+# ClusterSecretStore disabled for dev
+clusterSecretStore:
+  enabled: false
+
+awsRegion: "us-east-1"
+nextPublicEnvironment: "AWS EKS (dev)"
