@@ -6,7 +6,6 @@ import { Cpu, DollarSign, TrendingUp, Zap, Server } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const MAX_REPLICAS = 10
-const COST_PER_REPLICA = 0.02
 
 export function ScalingPanel() {
   const [isHighLoad, setIsHighLoad] = useState(false)
@@ -15,10 +14,32 @@ export function ScalingPanel() {
   const [isScaling, setIsScaling] = useState(false)
   const [animatingReplicas, setAnimatingReplicas] = useState<number[]>([0])
   const [useMockData, setUseMockData] = useState(false)
+  const [hourlyCost, setHourlyCost] = useState(0.02)
+  const [instanceType, setInstanceType] = useState('t3.medium')
 
   const [maxReplicas, setMaxReplicas] = useState(10)
 
-  const hourlyCost = replicas * COST_PER_REPLICA
+  // Fetch real cost data from AWS Pricing API
+  useEffect(() => {
+    const fetchCost = async () => {
+      try {
+        const response = await fetch('/api/cost')
+        if (response.ok) {
+          const data = await response.json()
+          if (!data.fallback) {
+            setHourlyCost(data.hourlyCost)
+            setInstanceType(data.instanceType)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch cost data:', error)
+      }
+    }
+
+    fetchCost()
+    const interval = setInterval(fetchCost, 30000) // Update every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch real metrics from Prometheus
   useEffect(() => {
@@ -154,10 +175,13 @@ export function ScalingPanel() {
                 : "text-accent cost-glow"
               }`}
           >
-            ${hourlyCost.toFixed(2)}
+            ${hourlyCost.toFixed(4)}
             <span className="text-sm text-muted-foreground font-mono">/hr</span>
           </div>
         </div>
+        <p className="text-xs text-muted-foreground mt-2 font-mono">
+          Instance: {instanceType}
+        </p>
         {hourlyCost > 0.15 && (
           <p className="text-xs text-destructive mt-2 font-mono animate-pulse neon-text">
             HIGH COST ALERT: Consider scaling policies

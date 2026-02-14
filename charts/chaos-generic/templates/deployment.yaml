@@ -62,6 +62,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: DEPLOYMENT_NAME
+              value: {{ include "chaos-generic.fullname" . }}
+            - name: AWS_REGION
+              value: {{ .Values.awsRegion | default "us-east-1" | quote }}
             - name: NEXT_PUBLIC_ENVIRONMENT
               value: {{ .Values.nextPublicEnvironment | default "AWS EKS (us-east-1)" | quote }}
             - name: NEXT_PUBLIC_BUILD_VERSION

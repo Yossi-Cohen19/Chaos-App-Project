@@ -12,8 +12,15 @@ const pool = new Pool({
 
 export async function GET() {
     let client;
+    const startTime = Date.now();
+
     try {
         client = await pool.connect();
+
+        // Measure latency with a simple health check
+        const latencyStart = Date.now();
+        await client.query('SELECT 1');
+        const latency = Date.now() - latencyStart;
 
         // Query active connections
         const activeQuery = await client.query(
@@ -38,6 +45,7 @@ export async function GET() {
             total: totalConnections,
             maxConnections: pool.options.max || 20,
             database: databaseName,
+            latency: latency,
             timestamp: Date.now(),
         });
     } catch (error: any) {

@@ -60,3 +60,6 @@ clusterSecretStore:
           serviceAccountRef:
             name: "external-secrets-sa"  # Fixed: correct SA name from Helm chart
             namespace: "external-secrets"
+
+awsRegion: "us-east-1"
+nextPublicEnvironment: "AWS EKS (staging)"
