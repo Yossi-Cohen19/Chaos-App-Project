@@ -2,8 +2,7 @@
 
 replicaCount: 2
 
-image:
-  tag: "latest"  # Will be updated by CI/CD
+
 
 ingress:
   enabled: true
