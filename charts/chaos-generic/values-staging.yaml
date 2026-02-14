@@ -47,3 +47,16 @@ externalSecret:
     name: chaos-secret-store
     kind: ClusterSecretStore
 
+# ClusterSecretStore configuration
+clusterSecretStore:
+  enabled: true  # Enable for staging to sync secrets from AWS
+  name: "chaos-secret-store"
+  provider:
+    aws:
+      service: "SecretsManager"
+      region: "us-east-1"
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: "external-secrets"  # Fixed: correct SA name
+            namespace: "external-secrets"

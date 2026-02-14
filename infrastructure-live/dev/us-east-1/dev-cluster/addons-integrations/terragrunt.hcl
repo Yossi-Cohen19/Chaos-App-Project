@@ -42,6 +42,9 @@ inputs = {
   # Pass IRSA role ARN for External DNS
   external_dns = {
     service_account_role_arn = dependency.external_dns_irsa.outputs.iam_role_arn
+    serviceaccount_annotations = {
+      "eks.amazonaws.com/role-arn" = dependency.external_dns_irsa.outputs.iam_role_arn
+    }
   }
 
   # ArgoCD App of Apps - Root application that auto-discovers child apps

@@ -19,7 +19,7 @@ inputs = {
   oidc_providers = {
     main = {
       provider_arn               = dependency.eks.outputs.oidc_provider_arn
-      namespace_service_accounts = ["external-dns:external-dns"]
+      namespace_service_accounts = ["external-dns:external-dns-sa"]  # Fixed: correct SA name from Helm chart
     }
   }
 

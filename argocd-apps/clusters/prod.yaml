@@ -14,10 +14,9 @@ spec:
     path: argocd-apps/apps
     directory:
       recurse: true
-      exclude: |
-        workloads/dev/**
-        **/*.bak
-        **/*.tmp
+      include: |
+        infrastructure/**
+        workloads/prod/**
   
   destination:
     server: https://kubernetes.default.svc
