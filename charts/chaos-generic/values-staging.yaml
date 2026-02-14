@@ -49,7 +49,7 @@ externalSecret:
   template:
     engineVersion: v2
     data:
-      DATABASE_URL: "postgresql://{{ .username | toString | urlquery }}:{{ .password | toString | urlquery }}@chaos-dev-db.c8p88k6qo4wv.us-east-1.rds.amazonaws.com:5432/postgres?sslmode=no-verify"
+      DATABASE_URL: "postgresql://{{ .username }}:{{ .password | toString | replace \"[\" \"%5B\" | replace \"]\" \"%5D\" | replace \"#\" \"%23\" }}@chaos-dev-db.c8p88k6qo4wv.us-east-1.rds.amazonaws.com:5432/postgres?sslmode=no-verify"
   secretStoreRef:
     name: chaos-secret-store
     kind: ClusterSecretStore
