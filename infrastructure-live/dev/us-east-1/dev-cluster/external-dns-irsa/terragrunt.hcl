@@ -6,6 +6,41 @@ include "root" {
   path = find_in_parent_folders()
 }
 
+# Generate IAM policy for Route53 access automatically
+generate "route53_policy" {
+  path      = "route53-policy.tf"
+  if_exists = "overwrite_terragrunt"
+  contents  = <<-EOT
+    # Create Route53 IAM policy for external-dns
+    resource "aws_iam_role_policy" "route53_access" {
+      name = "Route53Access"
+      role = aws_iam_role.this[0].name
+
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Action = [
+              "route53:ChangeResourceRecordSets"
+            ]
+            Resource = "arn:aws:route53:::hostedzone/*"
+          },
+          {
+            Effect = "Allow"
+            Action = [
+              "route53:ListHostedZones",
+              "route53:ListResourceRecordSets"
+            ]
+            Resource = "*"
+          }
+        ]
+      })
+    }
+  EOT
+}
+
+
 dependency "eks" {
   config_path = "../eks"
   mock_outputs = {

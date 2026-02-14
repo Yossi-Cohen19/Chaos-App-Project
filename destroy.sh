@@ -70,9 +70,9 @@ if command -v kubectl &> /dev/null; then
     if kubectl cluster-info &>/dev/null; then
         # Clean up Kubernetes resources first
         echo "Deleting ArgoCD Applications..."
-        kubectl delete -f "argocd-apps/clusters/${ENV}.yaml" --ignore-not-found=true 2>/dev/null || true
+        kubectl delete -f "argocd-apps/clusters/${ENV}.yaml" --ignore-not-found=true --timeout=60s 2>/dev/null || true
         # Delete any remaining applications
-        kubectl delete application --all -n argocd --ignore-not-found=true 2>/dev/null || true
+        kubectl delete application --all -n argocd --ignore-not-found=true --timeout=60s 2>/dev/null || true
 
         echo "Waiting for applications to terminate..."
         sleep 60

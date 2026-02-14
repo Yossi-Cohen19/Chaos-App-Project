@@ -94,7 +94,7 @@ env: []
 
 # New props
 nextPublicEnvironment: "AWS EKS (dev)"
-nextPublicCommitSha: "0040b3f"
+nextPublicCommitSha: "98162d7"
 # ClusterSecretStore configuration
 clusterSecretStore:
   enabled: false

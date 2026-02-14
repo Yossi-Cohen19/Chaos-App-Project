@@ -81,7 +81,7 @@ resource "aws_iam_policy" "ecr_push" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecr_push" {
-  role       = "github-actions-ecr-push"
+  role       = aws_iam_role.this[0].name
   policy_arn = aws_iam_policy.ecr_push.arn
   
   depends_on = [aws_iam_policy.ecr_push]
