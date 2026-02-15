@@ -6,11 +6,21 @@ metadata:
   labels:
     {{- include "chaos-generic.labels" . | nindent 4 }}
   annotations:
+    # Disable SSL redirect since TLS is terminated at the NLB
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.hosts }}
+    - hosts:
+        - {{ .host }}
+      # secretName intentionally omitted - SSL/TLS is terminated at NLB with ACM
+    {{- end }}
+  {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
     - host: {{ .host | quote }}

@@ -8,6 +8,9 @@ You need an active AWS account and admin credentials configured locally.
 
 ### Step 1.1: Create an IAM User (or use existing)
 Ensure your IAM user has **AdministratorAccess** (or extensive permissions for VPC, EKS, RDS, IAM, etc.).
+Common permissions required:
+- `AdministratorAccess` (easiest for setup)
+- OR specific policies for: EC2, EKS, IAM, RDS, Route53, S3, DynamoDB (for Terraform state).
 
 ### Step 1.2: Configure AWS CLI
 Run the following command and enter your Access Key ID and Secret Access Key:
@@ -27,7 +30,7 @@ The deployment script relies on these standard DevOps tools. Make sure they are 
 
 ### macOS (Homebrew)
 ```bash
-brew install awscli kubectl terraform terragrunt
+brew install awscli kubectl terraform terragrunt docker
 ```
 
 ### Linux (Ubuntu/Debian)
@@ -51,6 +54,9 @@ sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 chmod +x kubectl
 sudo mv kubectl /usr/local/bin/
+
+# Docker (Required for building images)
+# Follow official Docker installation guide for your distro
 ```
 
 ### Verify Installation
@@ -59,19 +65,20 @@ aws --version
 terraform --version
 terragrunt --version
 kubectl version --client
+docker --version
 ```
 
 ## 3. GitHub Repository (For CI/CD)
 
 The deployment sets up a CI/CD pipeline that connects AWS to your GitHub repository.
 
-1.  **Fork this repository** to your own GitHub account.
+1.  **Fork this repository** to your own GitHub account (if you haven't already).
 2.  **Clone your fork** locally:
     ```bash
     git clone https://github.com/YOUR_USERNAME/Chaos-App-Project.git
     cd Chaos-App-Project
     ```
-3.  Ensure you are on the `develop` or `main` branch.
+3.  **Note**: The automated deployment script (`deploy.sh`) relies on identifying the remote origin URL to configure GitHub OIDC provider in AWS. Ensure your git remote is set correctly.
 
 ## 4. Ready to Deploy?
 
@@ -79,5 +86,5 @@ Once these steps are complete, you are ready to run:
 
 ```bash
 chmod +x deploy.sh
-./deploy.sh
+./deploy.sh --env dev
 ```

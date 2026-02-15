@@ -14,19 +14,11 @@ dependency "eks" {
 }
 
 # 2. Common Provider Generation
-generate "versions_addons" {
-  path      = "provider_override.tf"
-  if_exists = "overwrite_terragrunt"
-  contents  = <<EOF
 terraform {
-  required_providers {
-    aws = { source = "hashicorp/aws", version = "~> 5.0" }
-    helm = { source = "hashicorp/helm", version = "~> 2.0" }
-    kubernetes = { source = "hashicorp/kubernetes", version = "~> 2.0" }
-    kubectl = { source = "gavinbunney/kubectl", version = "~> 1.14" }
+  before_hook "patch_kubectl_provider" {
+    commands = ["init", "plan", "apply", "destroy"]
+    execute  = ["/bin/bash", "-c", "cat > versions.tf <<EOF\nterraform {\n  required_version = \">= 1.3\"\n  required_providers {\n    aws = { source = \"hashicorp/aws\", version = \">= 5.38\" }\n    helm = { source = \"hashicorp/helm\", version = \"~> 2.0\" }\n    kubernetes = { source = \"hashicorp/kubernetes\", version = \">= 2.20\" }\n    kubectl = { source = \"gavinbunney/kubectl\", version = \"~> 1.14\" }\n    time = { source = \"hashicorp/time\", version = \">= 0.9.1\" }\n    random = { source = \"hashicorp/random\", version = \">= 3.0.0\" }\n  }\n}\nEOF"]
   }
-}
-EOF
 }
 
 generate "helm_provider" {

@@ -41,25 +41,60 @@ export async function DELETE(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const podName = searchParams.get('name');
+        const random = searchParams.get('random');
 
-        if (!podName) {
+        // Use a more generic selector or one based on the current release instance if possible
+        // Ideally we should use the same label selector that the deployment uses
+        const labelSelector = searchParams.get('labelSelector') || 'app.kubernetes.io/name=chaos-generic';
+
+        let targetPodName = podName;
+
+        // If random flag is set or no pod name provided, select a random pod
+        if (random === 'true' || !podName) {
+            const response = await k8sApi.listNamespacedPod(
+                namespace,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                labelSelector
+            );
+
+            const availablePods = response.body.items.filter(
+                pod => pod.status?.phase === 'Running'
+            );
+
+            if (availablePods.length === 0) {
+                return NextResponse.json(
+                    { error: 'No running pods found matching selector', message: `No pods found in namespace ${namespace} with selector ${labelSelector}` },
+                    { status: 404 }
+                );
+            }
+
+            // Select random pod
+            const randomIndex = Math.floor(Math.random() * availablePods.length);
+            targetPodName = availablePods[randomIndex].metadata?.name || null;
+        }
+
+        if (!targetPodName) {
             return NextResponse.json(
-                { error: 'Pod name is required' },
+                { error: 'Pod name is required or no pods available', message: 'Could not determine target pod name' },
                 { status: 400 }
             );
         }
 
         // Delete the pod
-        await k8sApi.deleteNamespacedPod(podName, namespace);
+        await k8sApi.deleteNamespacedPod(targetPodName, namespace);
 
         return NextResponse.json({
             success: true,
-            message: `Pod ${podName} deleted successfully`,
+            message: `Pod ${targetPodName} deleted successfully`,
+            podName: targetPodName,
         });
     } catch (error: any) {
         console.error('Pod deletion error:', error);
         return NextResponse.json(
-            { error: 'Failed to delete pod', message: error.message },
+            { error: 'Failed to delete pod', message: error.body?.message || error.message || 'Unknown error' },
             { status: 500 }
         );
     }

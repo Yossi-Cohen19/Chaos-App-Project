@@ -22,7 +22,7 @@ inputs = {
       min_size      = 1
       max_size      = 3
       desired_size  = 2
-      instance_types = ["t3.medium", "t3a.medium"]
+      instance_types = ["t3.large"]
       capacity_type  = "SPOT"
       
       labels = {

@@ -2,11 +2,13 @@
 
 replicaCount: 2
 
-image:
-  tag: "latest"  # Will be updated by CI/CD
+
 
 ingress:
   enabled: true
+  tls: true
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "stage.yossi.site"
   hosts:
     - host: stage.yossi.site
       paths:
@@ -24,7 +26,7 @@ resources:
 autoscaling:
   enabled: true
   minReplicas: 2
-  maxReplicas: 5
+  maxReplicas: 4
   targetCPUUtilizationPercentage: 70
 
 serviceAccount:
@@ -36,11 +38,37 @@ serviceAccount:
 externalSecret:
   enabled: true
   data:
-    - secretKey: DATABASE_URL
+    - secretKey: username
       remoteRef:
-        key: chaos-dev-db  # Shared DB in dev-cluster
-        property: DATABASE_URL
+        key: rds!db-623b3f64-c63e-48b3-a71d-ad96bf01d9e5
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: rds!db-623b3f64-c63e-48b3-a71d-ad96bf01d9e5
+        property: password
+  template:
+    engineVersion: v2
+    data:
+      DATABASE_URL: "postgresql://{{ .username }}:{{ .password | toString | replace \"[\" \"%5B\" | replace \"]\" \"%5D\" | replace \"#\" \"%23\" }}@chaos-dev-db.c8p88k6qo4wv.us-east-1.rds.amazonaws.com:5432/postgres?sslmode=no-verify"
   secretStoreRef:
     name: chaos-secret-store
     kind: ClusterSecretStore
+
+# ClusterSecretStore configuration
+clusterSecretStore:
+  enabled: true  # Enable for staging to sync secrets from AWS
+  name: "chaos-secret-store"
+  provider:
+    aws:
+      service: "SecretsManager"
+      region: "us-east-1"
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: "external-secrets-sa"  # Fixed: correct SA name from Helm chart
+            namespace: "external-secrets"
+
+awsRegion: "us-east-1"
+nextPublicEnvironment: "AWS EKS (staging)"
+nextPublicCommitSha: "e2466f7"
 

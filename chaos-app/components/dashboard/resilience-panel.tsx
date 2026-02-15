@@ -20,7 +20,7 @@ type K8sEvent = {
 }
 
 export function ResiliencePanel() {
-  const [dbConnections, setDbConnections] = useState({ active: 0, total: 0, maxConnections: 20 })
+  const [dbConnections, setDbConnections] = useState({ active: 0, total: 0, maxConnections: 20, latency: 0 })
   const [currentPod, setCurrentPod] = useState<string>("")
   const [availablePods, setAvailablePods] = useState<string[]>([])
   const [isReconnecting, setIsReconnecting] = useState(false)
@@ -52,6 +52,7 @@ export function ResiliencePanel() {
               active: data.active,
               total: data.total,
               maxConnections: data.maxConnections,
+              latency: data.latency || 0,
             })
           }
         }
@@ -147,17 +148,18 @@ export function ResiliencePanel() {
     setIsGlitching(true)
     setPodStatus("terminated")
 
-    addLog("WARN", `Deleting pod: ${targetPod}`)
+    addLog("WARN", `Attempting to delete a random pod...`)
     addLog("K8S", "Sending DELETE request to K8s API...")
 
-    // Call real K8s API to delete pod
+    // Call real K8s API to delete a random pod
     try {
-      const response = await fetch(`/api/pods?name=${encodeURIComponent(targetPod)}`, {
+      const response = await fetch(`/api/pods?random=true`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
-        addLog("K8S", `Pod ${targetPod} deleted successfully`)
+        const result = await response.json()
+        addLog("K8S", `Pod ${result.podName} deleted successfully`)
         addLog("K8S", "ReplicaSet controller creating replacement pod...")
       } else {
         const error = await response.json()
@@ -235,6 +237,12 @@ export function ResiliencePanel() {
         </div>
         <p className="text-sm text-muted-foreground mt-2 font-sans uppercase tracking-widest">
           DB Connections ({dbConnections.active} active / {dbConnections.maxConnections} max)
+        </p>
+        <p className={`text-xs font-mono mt-1 ${dbConnections.latency < 50 ? 'text-accent' :
+          dbConnections.latency < 100 ? 'text-amber-500' :
+            'text-destructive'
+          }`}>
+          Latency: {dbConnections.latency}ms
         </p>
       </div>
 

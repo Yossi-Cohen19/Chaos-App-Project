@@ -68,12 +68,13 @@ fi
 print_step "Step 1: Cleaning up Kubernetes Resources (${ENV})"
 if command -v kubectl &> /dev/null; then
     if kubectl cluster-info &>/dev/null; then
+        # Clean up Kubernetes resources first
         echo "Deleting ArgoCD Applications..."
-        kubectl delete -f "${APPS_FILE}" --ignore-not-found=true
-        kubectl delete -f argocd-apps/ingress-nginx.yaml --ignore-not-found=true
-        kubectl delete -f argocd-apps/prometheus.yaml --ignore-not-found=true
+        kubectl delete -f "argocd-apps/clusters/${ENV}.yaml" --ignore-not-found=true --timeout=60s 2>/dev/null || true
+        # Delete any remaining applications
+        kubectl delete application --all -n argocd --ignore-not-found=true --timeout=60s 2>/dev/null || true
 
-        echo "Waiting for Load Balancers to be cleaned up (60s)..."
+        echo "Waiting for applications to terminate..."
         sleep 60
     else
         echo -e "${YELLOW}Cannot connect to cluster, skipping K8s cleanup${NC}"
@@ -82,8 +83,16 @@ else
     echo "kubectl not found, skipping K8s cleanup (proceeding with caution)"
 fi
 
-# Step 2: Destroy Infrastructure
-print_step "Step 2: Destroying Terraform Infrastructure (${ENV})"
+# Step 2: Fix Terraform lock files (if needed)
+print_step "Step 2: Updating Terraform Dependencies (${ENV})"
+echo "Re-initializing Terragrunt modules to ensure lock files are up to date..."
+cd "${SCRIPT_DIR}/infrastructure-live/${CLUSTER_DIR}"
+terragrunt run-all init -upgrade --terragrunt-non-interactive || {
+    echo -e "${YELLOW}Warning: Some modules failed to init, will attempt destroy anyway${NC}"
+}
+
+# Step 3: Destroy Infrastructure
+print_step "Step 3: Destroying Terraform Infrastructure (${ENV})"
 cd "${SCRIPT_DIR}/infrastructure-live/${CLUSTER_DIR}"
 
 echo "Running: terragrunt run-all destroy"

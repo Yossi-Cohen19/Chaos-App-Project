@@ -96,9 +96,7 @@ fi
 
 # Update ArgoCD Apps with GitHub repo
 echo "Updating ArgoCD apps with current GitHub Repo..."
-for f in argocd-apps/*.yaml; do
-  sed -i "s|repoURL: https://github.com/.*|repoURL: https://github.com/${GITHUB_REPO}.git|g" "$f"
-done
+find argocd-apps -name "*.yaml" -type f -exec sed -i "s|repoURL: https://github.com/.*|repoURL: https://github.com/${GITHUB_REPO}.git|g" {} \;
 
 # Export for Terragrunt
 export GITHUB_REPO="${GITHUB_REPO}"
@@ -106,8 +104,8 @@ export GITHUB_REPO="${GITHUB_REPO}"
 # Deploy all infrastructure with one command
 print_step "Step 1: Initializing Infrastructure (${ENV})"
 cd "${SCRIPT_DIR}/infrastructure-live/${CLUSTER_DIR}"
-echo "Running: terragrunt run-all init"
-terragrunt run-all init
+echo "Running: terragrunt run-all init -upgrade"
+terragrunt run-all init -upgrade
 echo -e "${GREEN}✓ Infrastructure initialized${NC}"
 
 print_step "Step 2: Deploying All Infrastructure (${ENV})"
@@ -153,12 +151,11 @@ if changed:
   echo -e "${GREEN}✓ ALB webhook scoped to ALB-only resources${NC}" || \
   echo -e "${YELLOW}⚠ ALB webhook patch skipped (not found or already configured)${NC}"
 
-# Deploy ArgoCD Applications (all managed via GitOps)
-print_step "Step 6: Deploying ArgoCD Applications"
-kubectl apply -f argocd-apps/ingress-nginx.yaml
-kubectl apply -f "${APPS_FILE}"
-kubectl apply -f argocd-apps/prometheus.yaml
-echo -e "${GREEN}✓ ArgoCD Applications deployed${NC}"
+# Deploy ArgoCD Applications (App of Apps pattern)
+print_step "Step 6: Deploying ArgoCD Root Application"
+echo "Deploying root App of Apps for ${ENV} cluster..."
+kubectl apply -f "argocd-apps/clusters/${ENV}.yaml"
+echo -e "${GREEN}✓ Root application deployed - child apps will auto-sync${NC}"
 
 # Wait for ArgoCD to sync
 print_step "Step 7: Waiting for ArgoCD Sync"

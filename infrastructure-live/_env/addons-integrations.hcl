@@ -11,6 +11,12 @@ inputs = {
   enable_external_secrets = true
   enable_argocd = true
   
+  # Disable cert-manager - SSL handled by ACM at NLB
+  enable_cert_manager = false
+  
+  # Enable external-dns for automatic Route53 DNS record creation
+  enable_external_dns = true
+  
   argocd = {
     namespace = "argocd"
   }

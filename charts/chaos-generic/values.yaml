@@ -8,7 +8,7 @@ image:
   repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-dev
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "sha-a2136eae9d37c07f0c11521b423923cb4eda786a"
+  tag: "sha-641aeda85dd3872f204b44d138ac32594b1ec2c8"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -70,6 +70,13 @@ autoscaling:
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
 
 nodeSelector: {}
 
@@ -93,8 +100,9 @@ env: []
 #   value: "bar"
 
 # New props
-nextPublicEnvironment: "AWS EKS (us-east-1)"
-nextPublicCommitSha: "HEAD"
+nextPublicEnvironment: "AWS EKS (dev)"
+nextPublicCommitSha: "af0eb7b"
+awsRegion: "us-east-1"
 # ClusterSecretStore configuration
 clusterSecretStore:
   enabled: false
@@ -108,3 +116,39 @@ clusterSecretStore:
       serviceAccountRef:
             name: "external-secrets-sa"
             namespace: "external-secrets"
+
+# Health probes configuration
+healthProbes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+
+# Monitoring (Prometheus ServiceMonitor)
+monitoring:
+  enabled: false
+  serviceMonitor:
+    path: /metrics
+    interval: 30s
