@@ -18,7 +18,7 @@ export function StressButton() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ duration: 5 }), // Request 5s, but API caps at 10s
+                body: JSON.stringify({ duration: 60 }), // Request 60s for full effect
             })
 
             const data = await response.json()

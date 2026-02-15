@@ -5,13 +5,13 @@ import os from 'os';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        // SAFETY CRITICAL: Hardcode max duration to 10 seconds
+        // SAFETY CRITICAL: Hardcode max duration to 120 seconds
         const requestedDuration = body.duration || 5;
-        const durationSeconds = Math.min(requestedDuration, 10);
+        const durationSeconds = Math.min(requestedDuration, 120);
 
-        // SAFETY CRITICAL: Leave 2 cores free for OS/UI
+        // FULL LOAD: Use all cores to ensure we hit limits
         const totalCpus = os.cpus().length;
-        const threadCount = Math.max(1, totalCpus - 2);
+        const threadCount = Math.max(1, totalCpus);
 
         console.log(`Starting SAFE CPU stress for ${durationSeconds} seconds on ${threadCount} threads (Total CPUs: ${totalCpus})...`);
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             status: 'completed',
             duration: durationSeconds,
             threads: threadCount,
-            message: 'Stress test completed successfully in Safe Mode'
+            message: 'Stress test completed successfully (Full Load)'
         });
     } catch (error) {
         console.error('Stress test error:', error);
