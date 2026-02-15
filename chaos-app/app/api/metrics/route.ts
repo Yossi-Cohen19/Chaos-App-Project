@@ -42,8 +42,8 @@ export async function GET() {
     try {
         const ns = NAMESPACE;
 
-        // CPU usage % (rate over 1m for better responsiveness)
-        const cpuQuery = `sum(rate(container_cpu_usage_seconds_total{namespace="${ns}",pod=~"chaos-app.*",container!=""}[1m])) * 100`;
+        // CPU usage % (of limit)
+        const cpuQuery = `sum(rate(container_cpu_usage_seconds_total{namespace="${ns}",pod=~"chaos-app.*",container!=""}[1m])) / sum(kube_pod_container_resource_limits{namespace="${ns}",pod=~"chaos-app.*",resource="cpu"}) * 100`;
 
         // Memory working-set as % of limit
         const memPercentQuery = `sum(container_memory_working_set_bytes{namespace="${ns}",pod=~"chaos-app.*",container!=""}) / sum(kube_pod_container_resource_limits{namespace="${ns}",pod=~"chaos-app.*",resource="memory"}) * 100`;
