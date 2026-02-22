@@ -6,17 +6,17 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: chaos-platform-app-dev
+  ECR_ACCOUNT: "462645401469"
 
 permissions:
   contents: write
   id-token: write
 
-
 jobs:
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -31,7 +31,18 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
         with:
-          registries: "462645401469"
+          registries: ${{ env.ECR_ACCOUNT }}
+
+      # Determine which ECR repo to target based on branch
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ECR_REPOSITORY=chaos-platform-app-prod" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=prod" >> $GITHUB_ENV
+          else
+            echo "ECR_REPOSITORY=chaos-platform-app-dev" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+          fi
 
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
@@ -46,20 +57,27 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update Helm Chart Values (GitOps)
+      # GitOps: update the image tag in the correct values file for the target environment
+      - name: Update Helm values via GitOps (dev)
         if: github.ref == 'refs/heads/develop'
         env:
           IMAGE_TAG: sha-${{ github.sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Update the tag in values.yaml or a specific environment values file
-          # Here we just demonstrate updating values.yaml for simplicity in this prompt structure
-          # Using yq to update yaml relative to repo root
-          # Note: In a real scenario you might update `envs/dev/values.yaml`
           sed -i "s/tag: .*/tag: \"$IMAGE_TAG\"/" charts/chaos-generic/values.yaml
-          
           git add charts/chaos-generic/values.yaml
-          git commit -m "chore(release): update image tag to $IMAGE_TAG [skip ci]"
+          git commit -m "chore(release/dev): update image tag to $IMAGE_TAG [skip ci]"
+          git push
+
+      - name: Update Helm values via GitOps (prod)
+        if: github.ref == 'refs/heads/main'
+        env:
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          sed -i "s/tag: .*/tag: \"$IMAGE_TAG\"/" charts/chaos-generic/values-prod.yaml
+          git add charts/chaos-generic/values-prod.yaml
+          git commit -m "chore(release/prod): update image tag to $IMAGE_TAG [skip ci]"
           git push

@@ -27,7 +27,6 @@ spec:
               service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
               # External-DNS annotation for automatic Route53 DNS record creation
               external-dns.alpha.kubernetes.io/hostname: "dev.yossi.site,stage.yossi.site"
-            # Only enable HTTP since TLS is terminated at the NLB
             enableHttp: true
             enableHttps: true
             targetPorts:
