@@ -4,7 +4,7 @@ replicaCount: 3
 
 image:
   repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
-  tag: "latest"
+  # tag is managed by CI/CD via GitOps commit on every push to main
 
 ingress:
   enabled: true
@@ -37,10 +37,51 @@ serviceAccount:
   name: ""
   chaosRole: true
 
+# External Secrets - pull RDS-managed credentials and build DATABASE_URL
 externalSecret:
   enabled: true
   data:
-    - secretKey: DATABASE_URL
+    - secretKey: username
       remoteRef:
         key: chaos-prod-db
-        property: DATABASE_URL
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: chaos-prod-db
+        property: password
+  template:
+    engineVersion: v2
+    data:
+      DATABASE_URL: "postgresql://{{ .username }}:{{ .password | toString | replace \"[\" \"%5B\" | replace \"]\" \"%5D\" | replace \"#\" \"%23\" }}@chaos-prod-db.c8p88k6qo4wv.us-east-1.rds.amazonaws.com:5432/postgres?sslmode=no-verify"
+  secretStoreRef:
+    name: chaos-secret-store
+    kind: ClusterSecretStore
+
+# ClusterSecretStore - authenticate to AWS Secrets Manager via IRSA
+clusterSecretStore:
+  enabled: true
+  name: "chaos-secret-store"
+  provider:
+    aws:
+      service: "SecretsManager"
+      region: "us-east-1"
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: "external-secrets-sa"
+            namespace: "external-secrets"
+
+# Pod Disruption Budget - protect against simultaneous node drains
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Prometheus ServiceMonitor - enable metrics scraping
+monitoring:
+  enabled: true
+  serviceMonitor:
+    path: /metrics
+    interval: 30s
+
+awsRegion: "us-east-1"
+nextPublicEnvironment: "AWS EKS (prod)"

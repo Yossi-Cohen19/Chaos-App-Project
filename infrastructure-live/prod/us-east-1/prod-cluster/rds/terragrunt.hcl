@@ -26,7 +26,12 @@ dependency "security_group" {
 inputs = {
   identifier           = "chaos-prod-db"
   db_subnet_group_name = dependency.vpc.outputs.database_subnet_group_name
-  
-  create_db_security_group = false 
+
+  create_db_security_group = false
   vpc_security_group_ids   = [dependency.security_group.outputs.security_group_id]
+
+  # Production overrides (from _env/rds.hcl best-practice TODOs)
+  multi_az                = true   # Multi-AZ for high availability
+  skip_final_snapshot     = false  # Protect data on destroy
+  backup_retention_period = 30     # 30-day retention for compliance
 }
