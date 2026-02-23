@@ -27,7 +27,7 @@ The application itself is a **Chaos Engineering dashboard** — a web interface 
 | **Secret Management** | AWS Secrets Manager + External Secrets Operator |
 | **DNS & TLS** | Route53 + ACM (SSL terminated at NLB) |
 | **Environments** | Dev · Staging · Production |
-
+.
 ---
 
 ## 🏗️ Architecture Overview
