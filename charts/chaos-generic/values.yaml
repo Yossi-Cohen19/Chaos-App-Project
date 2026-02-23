@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-dev
+  repository: 462645401469.dkr.ecr.us-east-1.amazonaws.com/chaos-platform-app-prod
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "sha-aad391ae3c3c43d48da502c978355df94354259e"
@@ -100,8 +100,8 @@ env: []
 #   value: "bar"
 
 # New props
-nextPublicEnvironment: "AWS EKS (dev)"
-nextPublicCommitSha: "b1ea7e4"
+nextPublicEnvironment: "AWS EKS (prod)"
+nextPublicCommitSha: "5e8ba77"
 awsRegion: "us-east-1"
 # ClusterSecretStore configuration
 clusterSecretStore:
